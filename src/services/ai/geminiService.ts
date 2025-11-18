@@ -3,7 +3,7 @@ import { GeminiResponse, TriviaQuestion } from '@/types/quiz.types';
 export class GeminiService {
   private apiKey: string;
   private baseUrl =
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
   constructor() {
     this.apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
@@ -102,7 +102,7 @@ export class GeminiService {
   }
 
   /**
-   * Construye el prompt para Gemini
+   * Construye el prompt para Gemini (optimizado para reducir tokens)
    */
   private buildPrompt(
     topic: string,
@@ -110,58 +110,15 @@ export class GeminiService {
     difficulty: 'easy' | 'medium' | 'hard',
     language: string
   ): string {
-    const difficultyDescriptions = {
-      easy: 'básico, para principiantes',
-      medium: 'intermedio, con conceptos más complejos',
-      hard: 'avanzado, con conceptos desafiantes',
-    };
+    return `Crea ${numQuestions} preguntas de opción múltiple sobre "${topic}" en ${language}, nivel ${difficulty}.
 
-    return `
-Eres un profesor experto de español creando un quiz educativo.
+Responde SOLO con JSON (sin markdown):
+[{"question":"...","options":["A","B","C","D"],"correctAnswer":"A"}]
 
-TEMA: ${topic}
-IDIOMA: ${language}
-NIVEL: ${difficultyDescriptions[difficulty]}
-NÚMERO DE PREGUNTAS: ${numQuestions}
-
-INSTRUCCIONES IMPORTANTES:
-1. Las preguntas deben ser relevantes para estudiantes de español como segunda lengua
-2. Cada pregunta debe tener exactamente 4 opciones
-3. Solo una opción debe ser correcta
-4. Las opciones incorrectas deben ser plausibles pero claramente incorrectas
-5. La respuesta correcta debe coincidir EXACTAMENTE con una de las opciones
-
-FORMATO DE RESPUESTA:
-Responde ÚNICAMENTE con un array JSON válido (sin texto adicional, sin markdown, sin explicaciones).
-
-Estructura requerida:
-[
-  {
-    "question": "Tu pregunta aquí",
-    "options": ["Opción A", "Opción B", "Opción C", "Opción D"],
-    "correctAnswer": "La respuesta correcta (debe coincidir exactamente con una opción)"
-  }
-]
-
-EJEMPLOS DE PREGUNTAS SEGÚN DIFICULTAD:
-
-FÁCIL (easy):
-- Vocabulario básico
-- Conjugaciones simples de presente
-- Frases comunes
-
-MEDIO (medium):
-- Tiempos verbales (pretérito, imperfecto)
-- Expresiones idiomáticas comunes
-- Gramática intermedia
-
-DIFÍCIL (hard):
-- Subjuntivo
-- Expresiones idiomáticas complejas
-- Matices culturales
-
-Genera ${numQuestions} preguntas de nivel ${difficulty} sobre "${topic}".
-`.trim();
+Reglas:
+- 4 opciones por pregunta
+- 1 correcta
+- correctAnswer debe coincidir exactamente con una opción`;
   }
 
   /**

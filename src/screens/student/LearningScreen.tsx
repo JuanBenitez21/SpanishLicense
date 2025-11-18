@@ -4,16 +4,179 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@/theme/theme';
-
 import { useLearningPath } from '@/hooks/useLearningPath';
+import LoadingScreen from '../shared/LoadingScreen';
+import { StackNavigationProp } from '@react-navigation/stack';
 
-export default function LearningScreen() {
-  const { learningPath, loading, error, reload } = useLearningPath();
+type LearningScreenProps = {
+  navigation: StackNavigationProp<any>;
+};
 
-  if (loading) return <LoadingScreen />;
-  if (error) return <ErrorView error={error} onRetry={reload} />;
-  
-  // Renderizar learningPath.units en lugar de datos mockeados
+export default function LearningScreen({ navigation }: LearningScreenProps) {
+    const { learningPath, loading, error, reload } = useLearningPath();
+
+    if (loading) return <LoadingScreen />;
+
+    if (error) {
+      return (
+        <SafeAreaView style={styles.container}>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+            <Ionicons name="alert-circle-outline" size={64} color={theme.colors.error} />
+            <Text style={{ marginTop: 16, fontSize: 16, color: theme.colors.text.primary, textAlign: 'center' }}>
+              {error}
+            </Text>
+            <TouchableOpacity
+              onPress={reload}
+              style={{ marginTop: 20, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: theme.colors.primary.main, borderRadius: 8 }}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Reintentar</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
+    if (!learningPath) return null;
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Header with gradient */}
+      <LinearGradient
+        colors={[theme.colors.primary.main, theme.colors.primary.dark]}
+        style={styles.header}
+      >
+        <Text style={styles.headerTitle}>Mi Ruta de Aprendizaje</Text>
+        <View style={styles.levelInfo}>
+          <Text style={styles.levelTitle}>Nivel {learningPath.currentLevel}</Text>
+          <View style={styles.overallProgress}>
+            <View style={styles.overallProgressBar}>
+              <View style={[styles.overallProgressFill, { width: `${learningPath.overallProgress}%` }]} />
+            </View>
+            <Text style={styles.overallProgressText}>
+              {Math.round(learningPath.overallProgress)}% completado • {learningPath.completedLessons}/{learningPath.totalLessons} clases
+            </Text>
+          </View>
+        </View>
+      </LinearGradient>
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {learningPath.units.map((unit) => {
+          const allLessonsCompleted = unit.lessons.every(l => l.progress?.status === 'completed');
+
+          return (
+            <View key={unit.id} style={styles.unit}>
+              <View style={styles.unitHeader}>
+                <Text style={[styles.unitTitle, unit.is_locked && styles.textLocked]}>
+                  {unit.title}
+                </Text>
+                {allLessonsCompleted && !unit.is_locked && (
+                  <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
+                )}
+                {unit.is_locked && (
+                  <Ionicons name="lock-closed" size={20} color={theme.colors.text.disabled} />
+                )}
+              </View>
+
+              {!unit.is_locked && unit.lessons.length > 0 && (
+                <View style={styles.lessons}>
+                  {unit.lessons.map((lesson) => {
+                    const isCompleted = lesson.progress?.status === 'completed';
+                    const isInProgress = lesson.progress?.status === 'in_progress';
+                    const isLocked = lesson.is_locked;
+
+                    const getLessonIcon = () => {
+                      if (isCompleted) return 'checkmark';
+                      if (isInProgress) return 'play';
+                      if (lesson.type === 'quiz' || lesson.type === 'exam') return 'document-text';
+                      return 'play';
+                    };
+
+                    const handleLessonPress = () => {
+                      if (isLocked) return;
+
+                      if (lesson.type === 'video') {
+                        navigation.navigate('VideoPlayer', { lesson });
+                      } else if (lesson.type === 'quiz' || lesson.type === 'exam') {
+                        // Pasar lessonId en lugar de quizId, el QuizScreen buscará el quiz
+                        navigation.navigate('Quiz', { lessonId: lesson.id });
+                      }
+                    };
+
+                    const LessonComponent = isLocked ? View : TouchableOpacity;
+
+                    return (
+                      <LessonComponent
+                        key={lesson.id}
+                        style={[
+                          styles.lessonCard,
+                          isCompleted && styles.lessonCompleted,
+                          isInProgress && styles.lessonCurrent,
+                          isLocked && styles.lessonLocked
+                        ]}
+                        onPress={!isLocked ? handleLessonPress : undefined}
+                      >
+                        <View style={[
+                          styles.lessonIcon,
+                          isCompleted && styles.iconCompleted,
+                          isInProgress && styles.iconCurrent,
+                          isLocked && styles.iconLocked
+                        ]}>
+                          <Ionicons
+                            name={getLessonIcon()}
+                            size={20}
+                            color={
+                              isCompleted ? theme.colors.success :
+                              isInProgress ? theme.colors.primary.main :
+                              isLocked ? theme.colors.text.disabled :
+                              theme.colors.primary.main
+                            }
+                          />
+                        </View>
+
+                        <View style={styles.lessonContent}>
+                          <Text style={[styles.lessonTitle, isLocked && styles.textLocked]}>
+                            {lesson.title}
+                          </Text>
+                          {lesson.description && (
+                            <Text style={[styles.lessonSubtitle, isLocked && styles.textLocked]}>
+                              {lesson.description}
+                            </Text>
+                          )}
+                          {isInProgress && lesson.progress && (
+                            <View style={styles.progressDots}>
+                              {[0, 1, 2, 3, 4].map(i => (
+                                <View
+                                  key={i}
+                                  style={[
+                                    styles.dot,
+                                    i < Math.floor((lesson.progress?.score || 0) / 20) && styles.dotActive
+                                  ]}
+                                />
+                              ))}
+                            </View>
+                          )}
+                        </View>
+
+                        {isCompleted && (
+                          <Ionicons name="checkmark-circle" size={20} color={theme.colors.success} />
+                        )}
+                        {isInProgress && !isCompleted && (
+                          <Ionicons name="play-circle" size={24} color={theme.colors.primary.main} />
+                        )}
+                        {isLocked && (
+                          <Ionicons name="lock-closed" size={20} color={theme.colors.text.disabled} />
+                        )}
+                      </LessonComponent>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+          );
+        })}
+      </ScrollView>
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({

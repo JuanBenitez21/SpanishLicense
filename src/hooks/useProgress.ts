@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { lessonService } from '@/services/lessons/lessonService';
+// import { lessonService } from '@/services/lessons/lessonService';
 import { useAuth } from '@/services/auth/AuthContext';
 import { supabase } from '@/services/supabase/client';
 
@@ -24,7 +24,8 @@ export function useProgress() {
         throw new Error('Datos de estudiante no encontrados');
       }
 
-      await lessonService.startLesson(studentData.id, lessonId);
+      // TODO: Implementar lessonService
+      // await lessonService.startLesson(studentData.id, lessonId);
     } catch (error) {
       console.error('Error starting lesson:', error);
       throw error;
@@ -49,7 +50,8 @@ export function useProgress() {
         throw new Error('Datos de estudiante no encontrados');
       }
 
-      await lessonService.updateProgress(studentData.id, lessonId, percentage);
+      // TODO: Implementar lessonService
+      // await lessonService.updateProgress(studentData.id, lessonId, percentage);
     } catch (error) {
       console.error('Error updating progress:', error);
       throw error;
@@ -74,7 +76,8 @@ export function useProgress() {
         throw new Error('Datos de estudiante no encontrados');
       }
 
-      await lessonService.completeLesson(studentData.id, lessonId, score);
+      // TODO: Implementar lessonService
+      // await lessonService.completeLesson(studentData.id, lessonId, score);
     } catch (error) {
       console.error('Error completing lesson:', error);
       throw error;

@@ -1,8 +1,8 @@
 // src/hooks/useLearningPath.ts
 import { useState, useEffect } from 'react';
-import { lessonService } from '@/services/lessons/lessonService';
-import { LearningPathData } from '@/types/lesson.types';
+import { LearningPathData, UnitWithLessons, LessonWithProgress } from '@/types/lesson.types';
 import { useAuth } from '@/services/auth/AuthContext';
+import { supabase } from '@/services/supabase/client';
 
 export function useLearningPath() {
   const { profile } = useAuth();
@@ -11,32 +11,85 @@ export function useLearningPath() {
   const [error, setError] = useState<string | null>(null);
 
   const loadLearningPath = async () => {
-    if (!profile) return;
+    if (!profile) {
+      setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);
       setError(null);
 
-      // Obtener el student_id
-      const { data: studentData } = await import('@/services/supabase/client').then(
-        (m) =>
-          m.supabase
-            .from('students')
-            .select('id, current_level')
-            .eq('user_id', profile.id)
-            .single()
-      );
+      // Obtener el student_id y nivel actual
+      const { data: studentData } = await supabase
+        .from('students')
+        .select('id, current_level')
+        .eq('user_id', profile.id)
+        .single();
 
       if (!studentData) {
         throw new Error('Datos de estudiante no encontrados');
       }
 
-      const data = await lessonService.getLearningPath(
-        studentData.id,
-        studentData.current_level
-      );
+      // Obtener todas las unidades del nivel actual
+      const { data: units, error: unitsError } = await supabase
+        .from('units')
+        .select('*')
+        .eq('level', studentData.current_level)
+        .order('order_index', { ascending: true });
 
-      setLearningPath(data);
+      if (unitsError) throw unitsError;
+      if (!units) throw new Error('No se encontraron unidades');
+
+      // Obtener todas las lecciones de estas unidades
+      const unitIds = units.map(u => u.id);
+      const { data: lessons, error: lessonsError } = await supabase
+        .from('lessons')
+        .select('*')
+        .in('unit_id', unitIds)
+        .order('order_index', { ascending: true });
+
+      if (lessonsError) throw lessonsError;
+
+      // Obtener el progreso del estudiante
+      const { data: progressData, error: progressError } = await supabase
+        .from('student_progress')
+        .select('*')
+        .eq('student_id', studentData.id);
+
+      if (progressError) throw progressError;
+
+      // Combinar datos
+      const unitsWithLessons: UnitWithLessons[] = units.map(unit => {
+        const unitLessons = (lessons || []).filter(l => l.unit_id === unit.id);
+
+        const lessonsWithProgress: LessonWithProgress[] = unitLessons.map(lesson => {
+          const progress = progressData?.find(p => p.lesson_id === lesson.id);
+          return {
+            ...lesson,
+            progress: progress || undefined
+          };
+        });
+
+        return {
+          ...unit,
+          lessons: lessonsWithProgress
+        };
+      });
+
+      // Calcular estadísticas
+      const totalLessons = lessons?.length || 0;
+      const completedLessons = progressData?.filter(p => p.status === 'completed').length || 0;
+      const overallProgress = totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0;
+
+      setLearningPath({
+        units: unitsWithLessons,
+        overallProgress,
+        currentLevel: studentData.current_level,
+        completedLessons,
+        totalLessons
+      });
+
     } catch (err: any) {
       console.error('Error loading learning path:', err);
       setError(err.message || 'Error al cargar la ruta de aprendizaje');

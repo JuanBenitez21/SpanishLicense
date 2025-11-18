@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -6,6 +6,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@/theme/theme';
 import { useAuth } from '@/services/auth/AuthContext';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { useLearningPath } from '@/hooks/useLearningPath';
+// import { lessonService } from '@/services/lessons/lessonService';
+import { supabase } from '@/services/supabase/client';
 
 type HomeScreenProps = {
   navigation: StackNavigationProp<any>;
@@ -13,6 +16,30 @@ type HomeScreenProps = {
 
 export default function HomeScreen({ navigation }: HomeScreenProps) {
   const { profile } = useAuth();
+  const { learningPath, loading } = useLearningPath();
+  const [nextLesson, setNextLesson] = useState(null);
+
+  useEffect(() => {
+    loadNextLesson();
+  }, [learningPath]);
+
+  const loadNextLesson = async () => {
+    if (!profile || !learningPath) return;
+
+    const { data: studentData } = await supabase
+      .from('students')
+      .select('id')
+      .eq('user_id', profile.id)
+      .single();
+
+    // TODO: Implementar lessonService
+    // const next = await lessonService.getNextLesson(
+    //   studentData?.id,
+    //   learningPath.currentLevel
+    // );
+    // setNextLesson(next);
+  };
+
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

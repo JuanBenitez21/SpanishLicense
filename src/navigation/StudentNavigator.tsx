@@ -10,9 +10,26 @@ import HomeScreen from '@/screens/student/HomeScreen';
 import LearningScreen from '@/screens/student/LearningScreen';
 import CalendarScreen from '@/screens/student/CalendarScreen';
 import ProfileScreen from '@/screens/shared/ProfileScreen';
+import VideoPlayerScreen from '@/screens/student/VideoPlayerScreen';
+import QuizResultScreen from '@/screens/student/QuizResultScreen';
+import QuizScreen from '@/screens/student/QuizScreen';
+
+type LearningStackParamList = {
+  LearningMain: undefined;
+  VideoPlayer: {
+    lesson: any;
+  };
+  Quiz: {
+    lessonId: string;
+  };
+  QuizResult: {
+    result: any;
+  };
+};
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+const LearningStackNav = createStackNavigator<LearningStackParamList>();
 
 // Stack para cada tab (para poder navegar a otras pantallas)
 function HomeStack() {
@@ -26,9 +43,12 @@ function HomeStack() {
 
 function LearningStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="LearningMain" component={LearningScreen} />
-    </Stack.Navigator>
+    <LearningStackNav.Navigator screenOptions={{ headerShown: false }}>
+      <LearningStackNav.Screen name="LearningMain" component={LearningScreen} />
+      <LearningStackNav.Screen name="VideoPlayer" component={VideoPlayerScreen} />
+      <LearningStackNav.Screen name="Quiz" component={QuizScreen} />
+      <LearningStackNav.Screen name="QuizResult" component={QuizResultScreen} />
+    </LearningStackNav.Navigator>
   );
 }
 

@@ -91,6 +91,166 @@ export interface Database {
           };
           Relationships: [];
         };
+        quizzes: {
+          Row: {
+            id: string;
+            lesson_id: string;
+            title: string;
+            topic: string;
+            difficulty: 'easy' | 'medium' | 'hard';
+            num_questions: number;
+            passing_score: number;
+            time_limit_minutes: number | null;
+            created_at: string;
+          };
+          Insert: {
+            id?: string;
+            lesson_id: string;
+            title: string;
+            topic: string;
+            difficulty: 'easy' | 'medium' | 'hard';
+            num_questions: number;
+            passing_score: number;
+            time_limit_minutes?: number | null;
+            created_at?: string;
+          };
+          Update: {
+            lesson_id?: string;
+            title?: string;
+            topic?: string;
+            difficulty?: 'easy' | 'medium' | 'hard';
+            num_questions?: number;
+            passing_score?: number;
+            time_limit_minutes?: number | null;
+          };
+          Relationships: [];
+        };
+        quiz_attempts: {
+          Row: {
+            id: string;
+            student_id: string;
+            quiz_id: string;
+            generated_questions: any;
+            user_answers: (string | null)[];
+            score: number | null;
+            started_at: string;
+            completed_at: string | null;
+          };
+          Insert: {
+            id?: string;
+            student_id: string;
+            quiz_id: string;
+            generated_questions: any;
+            user_answers?: (string | null)[];
+            score?: number | null;
+            started_at?: string;
+            completed_at?: string | null;
+          };
+          Update: {
+            generated_questions?: any;
+            user_answers?: (string | null)[];
+            score?: number | null;
+            completed_at?: string | null;
+          };
+          Relationships: [];
+        };
+        student_progress: {
+          Row: {
+            id: string;
+            student_id: string;
+            lesson_id: string;
+            status: 'not_started' | 'in_progress' | 'completed';
+            score: number | null;
+            completed_at: string | null;
+            created_at: string;
+            updated_at: string;
+          };
+          Insert: {
+            id?: string;
+            student_id: string;
+            lesson_id: string;
+            status?: 'not_started' | 'in_progress' | 'completed';
+            score?: number | null;
+            completed_at?: string | null;
+            created_at?: string;
+            updated_at?: string;
+          };
+          Update: {
+            status?: 'not_started' | 'in_progress' | 'completed';
+            score?: number | null;
+            completed_at?: string | null;
+            updated_at?: string;
+          };
+          Relationships: [];
+        };
+        units: {
+          Row: {
+            id: string;
+            level: string;
+            order_index: number;
+            title: string;
+            description: string | null;
+            is_locked: boolean;
+            created_at: string;
+          };
+          Insert: {
+            id?: string;
+            level: string;
+            order_index: number;
+            title: string;
+            description?: string | null;
+            is_locked?: boolean;
+            created_at?: string;
+          };
+          Update: {
+            level?: string;
+            order_index?: number;
+            title?: string;
+            description?: string | null;
+            is_locked?: boolean;
+          };
+          Relationships: [];
+        };
+        lessons: {
+          Row: {
+            id: string;
+            unit_id: string;
+            order_index: number;
+            title: string;
+            description: string | null;
+            type: 'video' | 'quiz' | 'exam';
+            video_url: string | null;
+            duration_minutes: number | null;
+            thumbnail_url: string | null;
+            is_locked: boolean;
+            created_at: string;
+          };
+          Insert: {
+            id?: string;
+            unit_id: string;
+            order_index: number;
+            title: string;
+            description?: string | null;
+            type: 'video' | 'quiz' | 'exam';
+            video_url?: string | null;
+            duration_minutes?: number | null;
+            thumbnail_url?: string | null;
+            is_locked?: boolean;
+            created_at?: string;
+          };
+          Update: {
+            unit_id?: string;
+            order_index?: number;
+            title?: string;
+            description?: string | null;
+            type?: 'video' | 'quiz' | 'exam';
+            video_url?: string | null;
+            duration_minutes?: number | null;
+            thumbnail_url?: string | null;
+            is_locked?: boolean;
+          };
+          Relationships: [];
+        };
       };
       Views: {
         [_ in never]: never;

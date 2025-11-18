@@ -27,10 +27,10 @@ export interface Unit {
     student_id: string;
     lesson_id: string;
     status: 'not_started' | 'in_progress' | 'completed';
-    progress_percentage: number;
     score: number | null;
-    started_at: string | null;
     completed_at: string | null;
+    created_at: string;
+    updated_at: string;
   }
   
   export interface UnitWithLessons extends Unit {

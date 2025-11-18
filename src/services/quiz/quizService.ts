@@ -23,9 +23,7 @@ export class QuizService {
     }
   }
 
-  /**
-   * Obtiene el quiz de una lección
-   */
+  
   async getQuizByLesson(lessonId: string): Promise<Quiz | null> {
     try {
       const { data, error } = await supabase
@@ -43,9 +41,7 @@ export class QuizService {
     }
   }
 
-  /**
-   * Genera preguntas de quiz usando IA e inicia un intento
-   */
+
   async startQuizAttempt(
     studentId: string,
     quizId: string
@@ -199,9 +195,9 @@ export class QuizService {
           .from('student_progress')
           .update({
             status: 'completed',
-            progress_percentage: 100,
             score,
             completed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           })
           .eq('id', existing.id);
       } else {
@@ -209,10 +205,10 @@ export class QuizService {
           student_id: studentId,
           lesson_id: lessonId,
           status: 'completed',
-          progress_percentage: 100,
           score,
-          started_at: new Date().toISOString(),
           completed_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         });
       }
     } catch (error) {
