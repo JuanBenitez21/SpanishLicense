@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,8 +16,11 @@ import { theme } from '@/theme/theme';
 import { useAuth } from '@/services/auth/AuthContext';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useLearningPath } from '@/hooks/useLearningPath';
-// import { lessonService } from '@/services/lessons/lessonService';
 import { supabase } from '@/services/supabase/client';
+import { calendarService } from '@/services/calendar/calendarService';
+import { lessonService } from '@/services/lessons/lessonService';
+import type { ScheduledClass } from '@/types/calendar.types';
+import type { LessonWithProgress } from '@/types/lesson.types';
 
 type HomeScreenProps = {
   navigation: StackNavigationProp<any>;
@@ -16,62 +28,171 @@ type HomeScreenProps = {
 
 export default function HomeScreen({ navigation }: HomeScreenProps) {
   const { profile } = useAuth();
-  const { learningPath, loading } = useLearningPath();
-  const [nextLesson, setNextLesson] = useState(null);
+  const { learningPath, loading: pathLoading } = useLearningPath();
+  
+  const [nextLesson, setNextLesson] = useState<LessonWithProgress | null>(null);
+  const [nextClass, setNextClass] = useState<ScheduledClass | null>(null);
+  const [todayClasses, setTodayClasses] = useState<ScheduledClass[]>([]);
+  const [streakDays, setStreakDays] = useState(0);
+  const [studentData, setStudentData] = useState<any>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadNextLesson();
-  }, [learningPath]);
+    loadData();
+  }, [profile, learningPath]);
 
-  const loadNextLesson = async () => {
-    if (!profile || !learningPath) return;
+  const loadData = async () => {
+    if (!profile) return;
 
-    const { data: studentData } = await supabase
-      .from('students')
-      .select('id')
-      .eq('user_id', profile.id)
-      .single();
+    try {
+      setLoading(true);
 
-    // TODO: Implementar lessonService
-    // const next = await lessonService.getNextLesson(
-    //   studentData?.id,
-    //   learningPath.currentLevel
-    // );
-    // setNextLesson(next);
+      // Obtener datos del estudiante
+      const { data: student, error: studentError } = await supabase
+        .from('students')
+        .select('id, streak_days, current_level, total_classes_completed')
+        .eq('user_id', profile.id)
+        .single();
+
+      if (studentError) throw studentError;
+      if (!student) throw new Error('Student not found');
+
+      setStudentData(student);
+      setStreakDays(student.streak_days || 0);
+
+      // Cargar siguiente lección
+      if (learningPath) {
+        const next = await lessonService.getNextLesson(
+          student.id,
+          student.current_level
+        );
+        setNextLesson(next);
+      }
+
+      // Cargar próxima clase
+      const nextScheduled = await calendarService.getNextClass(student.id);
+      setNextClass(nextScheduled);
+
+      // Cargar clases de hoy
+      const today = await calendarService.getTodayClasses(student.id);
+      setTodayClasses(today);
+    } catch (error: any) {
+      console.error('Error loading home data:', error);
+      Alert.alert('Error', 'No se pudo cargar la información del inicio');
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
+
+  const formatTime = (timeString: string) => {
+    const [hours, minutes] = timeString.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+    return `${displayHour}:${minutes} ${ampm}`;
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    if (date.toDateString() === today.toDateString()) {
+      return 'Hoy';
+    } else if (date.toDateString() === tomorrow.toDateString()) {
+      return 'Mañana';
+    } else {
+      return date.toLocaleDateString('es-ES', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+      });
+    }
+  };
+
+  const handleLessonPress = (lesson: LessonWithProgress) => {
+    if (lesson.type === 'video') {
+      navigation.navigate('VideoPlayer', { lesson });
+    } else if (lesson.type === 'quiz' || lesson.type === 'exam') {
+      navigation.navigate('Quiz', { lessonId: lesson.id });
+    }
+  };
+
+  const handleStartClass = async (classItem: ScheduledClass) => {
+    try {
+      await calendarService.startClass(classItem.id);
+      // TODO: Navegar a pantalla de videollamada
+      Alert.alert('Iniciando clase', 'Redirigiendo a la sala de videollamada...');
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo iniciar la clase');
+    }
+  };
+
+  if (loading || pathLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary.main} />
+          <Text style={styles.loadingText}>Cargando...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Text style={styles.greeting}>Hola {profile?.first_name}</Text>
             <View style={styles.progressContainer}>
-              <Text style={styles.level}>A1</Text>
+              <Text style={styles.level}>{studentData?.current_level || 'A1'}</Text>
               <View style={styles.progressBar}>
                 <LinearGradient
                   colors={[theme.colors.primary.main, theme.colors.primary.dark]}
-                  style={[styles.progressFill, { width: '70%' }]}
+                  style={[
+                    styles.progressFill,
+                    { width: `${learningPath?.overallProgress || 0}%` },
+                  ]}
                 />
               </View>
-              <Text style={styles.percentage}>70%</Text>
+              <Text style={styles.percentage}>
+                {Math.round(learningPath?.overallProgress || 0)}%
+              </Text>
             </View>
           </View>
-          
+
           <View style={styles.headerRight}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.iconButton}
               onPress={() => navigation.navigate('ChatList')}
             >
-              <Ionicons name="chatbubble-outline" size={24} color={theme.colors.text.primary} />
-              <View style={styles.badge}>
+              <Ionicons
+                name="chatbubble-outline"
+                size={24}
+                color={theme.colors.text.primary}
+              />
+              {/* Badge con número de mensajes sin leer */}
+              {/* <View style={styles.badge}>
                 <Text style={styles.badgeText}>3</Text>
-              </View>
+              </View> */}
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.avatar}
               onPress={() => navigation.navigate('Profile')}
             >
@@ -81,63 +202,134 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         </View>
 
         {/* Continue Learning Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleContainer}>
-              <Text style={styles.sectionIcon}>📚</Text>
-              <Text style={styles.sectionTitle}>Continúa Aprendiendo</Text>
+        {nextLesson && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <Text style={styles.sectionIcon}>📚</Text>
+                <Text style={styles.sectionTitle}>Continúa Aprendiendo</Text>
+              </View>
+              <TouchableOpacity onPress={() => navigation.navigate('Learning')}>
+                <Text style={styles.seeAll}>Ver todo →</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity>
-              <Text style={styles.seeAll}>Ver todo →</Text>
+
+            <TouchableOpacity
+              style={styles.lessonCard}
+              onPress={() => handleLessonPress(nextLesson)}
+            >
+              <View style={styles.lessonThumbnail}>
+                <Ionicons
+                  name={
+                    nextLesson.type === 'video'
+                      ? 'play-circle'
+                      : 'document-text'
+                  }
+                  size={40}
+                  color={theme.colors.primary.main}
+                />
+              </View>
+              <View style={styles.lessonContent}>
+                <Text style={styles.lessonTitle}>{nextLesson.title}</Text>
+                <Text style={styles.lessonSubtitle}>
+                  {nextLesson.type === 'video'
+                    ? `${nextLesson.duration_minutes} min`
+                    : 'Cuestionario'}
+                </Text>
+                {nextLesson.progress && (
+                  <View style={styles.lessonProgress}>
+                    <View style={styles.progressDots}>
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <View
+                          key={i}
+                          style={[
+                            styles.dot,
+                            i <= Math.floor((nextLesson.progress?.score || 0) / 20) &&
+                              styles.dotActive,
+                          ]}
+                        />
+                      ))}
+                    </View>
+                    <Text style={styles.lessonPercentage}>
+                      {nextLesson.progress.score || 0}%
+                    </Text>
+                  </View>
+                )}
+              </View>
             </TouchableOpacity>
           </View>
-
-          <TouchableOpacity style={styles.lessonCard}>
-            <View style={styles.lessonThumbnail}>
-              <Ionicons name="play-circle" size={40} color={theme.colors.primary.main} />
-            </View>
-            <View style={styles.lessonContent}>
-              <Text style={styles.lessonTitle}>Clase 3</Text>
-              <Text style={styles.lessonSubtitle}>Saludos básicos</Text>
-              <View style={styles.lessonProgress}>
-                <View style={styles.progressDots}>
-                  <View style={[styles.dot, styles.dotActive]} />
-                  <View style={[styles.dot, styles.dotActive]} />
-                  <View style={[styles.dot, styles.dotActive]} />
-                  <View style={styles.dot} />
-                  <View style={styles.dot} />
-                </View>
-                <Text style={styles.lessonPercentage}>60%</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-        </View>
+        )}
 
         {/* Upcoming Classes Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleContainer}>
-              <Text style={styles.sectionIcon}>🗓️</Text>
-              <Text style={styles.sectionTitle}>Próximas Clases</Text>
+        {todayClasses.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <Text style={styles.sectionIcon}>🗓️</Text>
+                <Text style={styles.sectionTitle}>Clases de Hoy</Text>
+              </View>
+              <TouchableOpacity onPress={() => navigation.navigate('Calendar')}>
+                <Text style={styles.seeAll}>Ver más →</Text>
+              </TouchableOpacity>
             </View>
-          </View>
 
-          <View style={styles.classCard}>
-            <View style={styles.classLeft}>
-              <View style={styles.teacherAvatar}>
-                <Ionicons name="person" size={24} color={theme.colors.primary.main} />
+            {todayClasses.map((classItem) => (
+              <View key={classItem.id} style={styles.classCard}>
+                <View style={styles.classLeft}>
+                  <View style={styles.teacherAvatar}>
+                    <Ionicons name="person" size={24} color={theme.colors.primary.main} />
+                  </View>
+                  <View>
+                    <Text style={styles.teacherName}>
+                      {classItem.teacher?.user.first_name}{' '}
+                      {classItem.teacher?.user.last_name}
+                    </Text>
+                    <Text style={styles.classTime}>
+                      {formatTime(classItem.start_time)}
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.joinButton}
+                  onPress={() => handleStartClass(classItem)}
+                >
+                  <Ionicons name="videocam" size={20} color="#FFFFFF" />
+                  <Text style={styles.joinButtonText}>Iniciar</Text>
+                </TouchableOpacity>
               </View>
-              <View>
-                <Text style={styles.teacherName}>Prof. María</Text>
-                <Text style={styles.classTime}>Hoy • 3:00 PM</Text>
+            ))}
+          </View>
+        )}
+
+        {/* Next Class Card (si no hay clases hoy pero hay próxima) */}
+        {todayClasses.length === 0 && nextClass && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <Text style={styles.sectionIcon}>🗓️</Text>
+                <Text style={styles.sectionTitle}>Próxima Clase</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.joinButton}>
-              <Ionicons name="videocam" size={20} color="#FFFFFF" />
-              <Text style={styles.joinButtonText}>Iniciar</Text>
-            </TouchableOpacity>
+
+            <View style={styles.classCard}>
+              <View style={styles.classLeft}>
+                <View style={styles.teacherAvatar}>
+                  <Ionicons name="person" size={24} color={theme.colors.primary.main} />
+                </View>
+                <View>
+                  <Text style={styles.teacherName}>
+                    {nextClass.teacher?.user.first_name}{' '}
+                    {nextClass.teacher?.user.last_name}
+                  </Text>
+                  <Text style={styles.classTime}>
+                    {formatDate(nextClass.scheduled_date)} •{' '}
+                    {formatTime(nextClass.start_time)}
+                  </Text>
+                </View>
+              </View>
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Explore Cultures Section */}
         <View style={styles.section}>
@@ -174,11 +366,19 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           <View style={styles.achievementsContainer}>
             <View style={styles.achievementItem}>
               <Text style={styles.achievementEmoji}>🔥</Text>
-              <Text style={styles.achievementText}>Racha: 7 días</Text>
+              <Text style={styles.achievementText}>Racha: {streakDays} días</Text>
             </View>
             <View style={styles.achievementItem}>
               <Text style={styles.achievementEmoji}>⭐</Text>
-              <Text style={styles.achievementText}>Nivel A1</Text>
+              <Text style={styles.achievementText}>
+                Nivel {studentData?.current_level || 'A1'}
+              </Text>
+            </View>
+            <View style={styles.achievementItem}>
+              <Text style={styles.achievementEmoji}>📚</Text>
+              <Text style={styles.achievementText}>
+                {studentData?.total_classes_completed || 0} clases
+              </Text>
             </View>
           </View>
         </View>
@@ -191,6 +391,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background.default,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: theme.colors.text.secondary,
   },
   header: {
     flexDirection: 'row',
@@ -367,12 +578,14 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background.paper,
     borderRadius: 20,
     padding: 16,
+    marginBottom: 12,
     ...theme.shadows.small,
   },
   classLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flex: 1,
   },
   teacherAvatar: {
     width: 48,

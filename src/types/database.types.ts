@@ -251,12 +251,89 @@ export interface Database {
           };
           Relationships: [];
         };
+        scheduled_classes: {
+          Row: {
+            id: string;
+            student_id: string;
+            teacher_id: string;
+            scheduled_date: string;
+            start_time: string;
+            end_time: string;
+            duration_minutes: number;
+            class_type: 'individual' | 'group';
+            status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+            meeting_url: string | null;
+            notes: string | null;
+            created_at: string;
+            updated_at: string;
+          };
+          Insert: {
+            id?: string;
+            student_id: string;
+            teacher_id: string;
+            scheduled_date: string;
+            start_time: string;
+            end_time: string;
+            duration_minutes?: number;
+            class_type?: 'individual' | 'group';
+            status?: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+            meeting_url?: string | null;
+            notes?: string | null;
+            created_at?: string;
+            updated_at?: string;
+          };
+          Update: {
+            scheduled_date?: string;
+            start_time?: string;
+            end_time?: string;
+            duration_minutes?: number;
+            class_type?: 'individual' | 'group';
+            status?: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+            meeting_url?: string | null;
+            notes?: string | null;
+            updated_at?: string;
+          };
+          Relationships: [];
+        };
+        teacher_availability: {
+          Row: {
+            id: string;
+            teacher_id: string;
+            day_of_week: number;
+            start_time: string;
+            end_time: string;
+            is_active: boolean;
+            created_at: string;
+            updated_at: string;
+          };
+          Insert: {
+            id?: string;
+            teacher_id: string;
+            day_of_week: number;
+            start_time: string;
+            end_time: string;
+            is_active?: boolean;
+            created_at?: string;
+            updated_at?: string;
+          };
+          Update: {
+            day_of_week?: number;
+            start_time?: string;
+            end_time?: string;
+            is_active?: boolean;
+            updated_at?: string;
+          };
+          Relationships: [];
+        };
       };
       Views: {
         [_ in never]: never;
       };
       Functions: {
-        [_ in never]: never;
+        increment_student_classes: {
+          Args: { student_id: string };
+          Returns: void;
+        };
       };
       Enums: {
         [_ in never]: never;

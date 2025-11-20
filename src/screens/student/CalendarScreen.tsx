@@ -1,15 +1,214 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  Modal,
+  FlatList,
+  TextInput,
+  Alert,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@/theme/theme';
+import { useAuth } from '@/services/auth/AuthContext';
+import { supabase } from '@/services/supabase/client';
+import { calendarService } from '@/services/calendar/calendarService';
+import type { ScheduledClass } from '@/types/calendar.types';
+
+const DAYS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+const MONTHS = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+];
 
 export default function CalendarScreen() {
-  const [selectedDate, setSelectedDate] = useState(16);
+  const { profile } = useAuth();
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [daysWithClasses, setDaysWithClasses] = useState<number[]>([]);
+  const [selectedDayClasses, setSelectedDayClasses] = useState<ScheduledClass[]>([]);
+  const [studentId, setStudentId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
 
-  // Mock data
-  const daysInMonth = Array.from({ length: 30 }, (_, i) => i + 1);
-  const daysWithClasses = [16, 18, 22, 25];
+  useEffect(() => {
+    loadStudentId();
+  }, [profile]);
+
+  useEffect(() => {
+    if (studentId) {
+      loadCalendarData();
+    }
+  }, [studentId, currentDate]);
+
+  useEffect(() => {
+    if (studentId && selectedDate) {
+      loadSelectedDayClasses();
+    }
+  }, [studentId, selectedDate]);
+
+  const loadStudentId = async () => {
+    if (!profile) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('students')
+        .select('id')
+        .eq('user_id', profile.id)
+        .single();
+
+      if (error) throw error;
+      setStudentId(data.id);
+    } catch (error) {
+      console.error('Error loading student id:', error);
+    }
+  };
+
+  const loadCalendarData = async () => {
+    if (!studentId) return;
+
+    try {
+      setLoading(true);
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth() + 1;
+
+      const days = await calendarService.getDaysWithClasses(studentId, year, month);
+      setDaysWithClasses(days);
+    } catch (error) {
+      console.error('Error loading calendar data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadSelectedDayClasses = async () => {
+    if (!studentId) return;
+
+    try {
+      const dateStr = selectedDate.toISOString().split('T')[0];
+      const startDate = dateStr;
+      const endDate = dateStr;
+
+      const classes = await calendarService.getStudentClasses(
+        studentId,
+        startDate,
+        endDate
+      );
+      setSelectedDayClasses(classes);
+    } catch (error) {
+      console.error('Error loading selected day classes:', error);
+    }
+  };
+
+  const getDaysInMonth = () => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+
+    const days = [];
+    
+    // Días vacíos al inicio
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(null);
+    }
+
+    // Días del mes
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(i);
+    }
+
+    return days;
+  };
+
+  const changeMonth = (increment: number) => {
+    const newDate = new Date(currentDate);
+    newDate.setMonth(newDate.getMonth() + increment);
+    setCurrentDate(newDate);
+  };
+
+  const handleDayPress = (day: number | null) => {
+    if (day === null) return;
+
+    const newDate = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      day
+    );
+    setSelectedDate(newDate);
+  };
+
+  const formatTime = (timeString: string) => {
+    const [hours, minutes] = timeString.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+    return `${displayHour}:${minutes} ${ampm}`;
+  };
+
+  const handleCancelClass = async (classId: string) => {
+    Alert.alert(
+      'Cancelar Clase',
+      '¿Estás seguro de que deseas cancelar esta clase?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Sí, cancelar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await calendarService.cancelClass(classId);
+              await loadSelectedDayClasses();
+              await loadCalendarData();
+              Alert.alert('Éxito', 'La clase ha sido cancelada');
+            } catch (error) {
+              Alert.alert('Error', 'No se pudo cancelar la clase');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleStartClass = async (classItem: ScheduledClass) => {
+    try {
+      await calendarService.startClass(classItem.id);
+      // TODO: Navegar a pantalla de videollamada
+      Alert.alert('Iniciando clase', 'Redirigiendo a la sala de videollamada...');
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo iniciar la clase');
+    }
+  };
+
+  const isToday = (day: number | null) => {
+    if (day === null) return false;
+    const today = new Date();
+    return (
+      day === today.getDate() &&
+      currentDate.getMonth() === today.getMonth() &&
+      currentDate.getFullYear() === today.getFullYear()
+    );
+  };
+
+  const isSelected = (day: number | null) => {
+    if (day === null) return false;
+    return (
+      day === selectedDate.getDate() &&
+      currentDate.getMonth() === selectedDate.getMonth() &&
+      currentDate.getFullYear() === selectedDate.getFullYear()
+    );
+  };
+
+  const hasClasses = (day: number | null) => {
+    if (day === null) return false;
+    return daysWithClasses.includes(day);
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -21,18 +220,26 @@ export default function CalendarScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Month Navigator */}
         <View style={styles.monthNavigator}>
-          <TouchableOpacity style={styles.navButton}>
+          <TouchableOpacity
+            style={styles.navButton}
+            onPress={() => changeMonth(-1)}
+          >
             <Ionicons name="chevron-back" size={20} color={theme.colors.text.primary} />
           </TouchableOpacity>
-          <Text style={styles.monthText}>Noviembre 2024</Text>
-          <TouchableOpacity style={styles.navButton}>
+          <Text style={styles.monthText}>
+            {MONTHS[currentDate.getMonth()]} {currentDate.getFullYear()}
+          </Text>
+          <TouchableOpacity
+            style={styles.navButton}
+            onPress={() => changeMonth(1)}
+          >
             <Ionicons name="chevron-forward" size={20} color={theme.colors.text.primary} />
           </TouchableOpacity>
         </View>
 
         {/* Days Header */}
         <View style={styles.daysHeader}>
-          {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((day, index) => (
+          {DAYS.map((day, index) => (
             <Text key={index} style={styles.dayLabel}>
               {day}
             </Text>
@@ -40,44 +247,56 @@ export default function CalendarScreen() {
         </View>
 
         {/* Calendar Grid */}
-        <View style={styles.calendarGrid}>
-          {daysInMonth.map((day) => {
-            const hasClass = daysWithClasses.includes(day);
-            const isSelected = day === selectedDate;
-            const isToday = day === 16;
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={theme.colors.primary.main} />
+          </View>
+        ) : (
+          <View style={styles.calendarGrid}>
+            {getDaysInMonth().map((day, index) => {
+              if (day === null) {
+                return <View key={`empty-${index}`} style={styles.dayCell} />;
+              }
 
-            return (
-              <TouchableOpacity
-                key={day}
-                style={[
-                  styles.dayCell,
-                  isSelected && styles.dayCellSelected,
-                  isToday && !isSelected && styles.dayCellToday,
-                ]}
-                onPress={() => setSelectedDate(day)}
-              >
-                <Text
+              return (
+                <TouchableOpacity
+                  key={`day-${day}`}
                   style={[
-                    styles.dayNumber,
-                    isSelected && styles.dayNumberSelected,
+                    styles.dayCell,
+                    isSelected(day) && styles.dayCellSelected,
+                    isToday(day) && !isSelected(day) && styles.dayCellToday,
                   ]}
+                  onPress={() => handleDayPress(day)}
                 >
-                  {day}
-                </Text>
-                {hasClass && !isSelected && <View style={styles.classDot} />}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+                  <Text
+                    style={[
+                      styles.dayNumber,
+                      isSelected(day) && styles.dayNumberSelected,
+                    ]}
+                  >
+                    {day}
+                  </Text>
+                  {hasClasses(day) && !isSelected(day) && (
+                    <View style={styles.classDot} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
 
         {/* Legend */}
         <View style={styles.legend}>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: theme.colors.error }]} />
+            <View
+              style={[styles.legendDot, { backgroundColor: theme.colors.error }]}
+            />
             <Text style={styles.legendText}>Clase programada</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: theme.colors.primary.main }]} />
+            <View
+              style={[styles.legendDot, { backgroundColor: theme.colors.primary.main }]}
+            />
             <Text style={styles.legendText}>Hoy</Text>
           </View>
         </View>
@@ -85,41 +304,93 @@ export default function CalendarScreen() {
         {/* Classes for Selected Day */}
         <View style={styles.classesSection}>
           <Text style={styles.classesSectionTitle}>
-            Clases del {selectedDate} de Noviembre
+            Clases del {selectedDate.getDate()} de{' '}
+            {MONTHS[selectedDate.getMonth()]}
           </Text>
 
-          {selectedDate === 16 ? (
-            <View style={styles.classCard}>
-              <View style={styles.classTime}>
-                <Ionicons name="time-outline" size={20} color={theme.colors.primary.main} />
-                <Text style={styles.timeText}>10:00 AM</Text>
-              </View>
-              
-              <View style={styles.classInfo}>
-                <View style={styles.teacherInfo}>
-                  <View style={styles.teacherAvatar}>
-                    <Ionicons name="person" size={24} color={theme.colors.primary.main} />
-                  </View>
-                  <View>
-                    <Text style={styles.teacherName}>Prof. María González</Text>
-                    <Text style={styles.classType}>Clase Individual</Text>
-                  </View>
+          {selectedDayClasses.length > 0 ? (
+            selectedDayClasses.map((classItem) => (
+              <View key={classItem.id} style={styles.classCard}>
+                <View style={styles.classTime}>
+                  <Ionicons
+                    name="time-outline"
+                    size={20}
+                    color={theme.colors.primary.main}
+                  />
+                  <Text style={styles.timeText}>
+                    {formatTime(classItem.start_time)}
+                  </Text>
                 </View>
 
-                <View style={styles.classActions}>
-                  <TouchableOpacity style={styles.actionButton}>
-                    <Ionicons name="videocam" size={20} color="#FFFFFF" />
-                    <Text style={styles.actionButtonText}>Iniciar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.actionButton, styles.cancelButton]}>
-                    <Text style={styles.cancelButtonText}>Cancelar</Text>
-                  </TouchableOpacity>
+                <View style={styles.classInfo}>
+                  <View style={styles.teacherInfo}>
+                    <View style={styles.teacherAvatar}>
+                      <Ionicons
+                        name="person"
+                        size={24}
+                        color={theme.colors.primary.main}
+                      />
+                    </View>
+                    <View>
+                      <Text style={styles.teacherName}>
+                        Prof. {classItem.teacher?.user.first_name}{' '}
+                        {classItem.teacher?.user.last_name}
+                      </Text>
+                      <Text style={styles.classType}>
+                        Clase {classItem.class_type === 'individual' ? 'Individual' : 'Grupal'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {classItem.status === 'scheduled' && (
+                    <View style={styles.classActions}>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => handleStartClass(classItem)}
+                      >
+                        <Ionicons name="videocam" size={20} color="#FFFFFF" />
+                        <Text style={styles.actionButtonText}>Iniciar</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.actionButton, styles.cancelButton]}
+                        onPress={() => handleCancelClass(classItem.id)}
+                      >
+                        <Text style={styles.cancelButtonText}>Cancelar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {classItem.status === 'completed' && (
+                    <View style={styles.completedBadge}>
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={20}
+                        color={theme.colors.success}
+                      />
+                      <Text style={styles.completedText}>Completada</Text>
+                    </View>
+                  )}
+
+                  {classItem.status === 'cancelled' && (
+                    <View style={styles.cancelledBadge}>
+                      <Ionicons
+                        name="close-circle"
+                        size={20}
+                        color={theme.colors.error}
+                      />
+                      <Text style={styles.cancelledText}>Cancelada</Text>
+                    </View>
+                  )}
                 </View>
               </View>
-            </View>
+            ))
           ) : (
             <View style={styles.emptyState}>
-              <Ionicons name="calendar-outline" size={48} color={theme.colors.text.disabled} />
+              <Ionicons
+                name="calendar-outline"
+                size={48}
+                color={theme.colors.text.disabled}
+              />
               <Text style={styles.emptyStateText}>
                 No hay clases programadas para este día
               </Text>
@@ -127,12 +398,47 @@ export default function CalendarScreen() {
           )}
 
           {/* Add Class Button */}
-          <TouchableOpacity style={styles.addButton}>
-            <Ionicons name="add-circle-outline" size={24} color={theme.colors.primary.main} />
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => setShowScheduleModal(true)}
+          >
+            <Ionicons
+              name="add-circle-outline"
+              size={24}
+              color={theme.colors.primary.main}
+            />
             <Text style={styles.addButtonText}>Agendar nueva clase</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Schedule Modal - TODO: Implement full functionality */}
+      <Modal
+        visible={showScheduleModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowScheduleModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Agendar Clase</Text>
+              <TouchableOpacity onPress={() => setShowScheduleModal(false)}>
+                <Ionicons name="close" size={24} color={theme.colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalText}>
+              Funcionalidad de agendamiento en desarrollo...
+            </Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setShowScheduleModal(false)}
+            >
+              <Text style={styles.modalButtonText}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -183,6 +489,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: theme.colors.text.disabled,
     textAlign: 'center',
+  },
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
   },
   calendarGrid: {
     flexDirection: 'row',
@@ -318,12 +628,38 @@ const styles = StyleSheet.create({
   cancelButton: {
     backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.error,
   },
   cancelButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: theme.colors.text.secondary,
+    color: theme.colors.error,
+  },
+  completedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    backgroundColor: theme.colors.success + '15',
+    borderRadius: 12,
+  },
+  completedText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.success,
+  },
+  cancelledBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    backgroundColor: theme.colors.error + '15',
+    borderRadius: 12,
+  },
+  cancelledText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.error,
   },
   emptyState: {
     alignItems: 'center',
@@ -351,5 +687,45 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: theme.colors.primary.main,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: theme.colors.background.paper,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: theme.colors.text.primary,
+  },
+  modalText: {
+    fontSize: 16,
+    color: theme.colors.text.secondary,
+    textAlign: 'center',
+    marginVertical: 20,
+  },
+  modalButton: {
+    backgroundColor: theme.colors.primary.main,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
