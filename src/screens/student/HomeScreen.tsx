@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { theme } from '@/theme/theme';
 import { useAuth } from '@/services/auth/AuthContext';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -28,8 +29,8 @@ type HomeScreenProps = {
 
 export default function HomeScreen({ navigation }: HomeScreenProps) {
   const { profile } = useAuth();
-  const { learningPath, loading: pathLoading } = useLearningPath();
-  
+  const { learningPath, loading: pathLoading, reload: reloadLearningPath } = useLearningPath();
+
   const [nextLesson, setNextLesson] = useState<LessonWithProgress | null>(null);
   const [nextClass, setNextClass] = useState<ScheduledClass | null>(null);
   const [todayClasses, setTodayClasses] = useState<ScheduledClass[]>([]);
@@ -37,16 +38,33 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [studentData, setStudentData] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   useEffect(() => {
-    loadData();
-  }, [profile, learningPath]);
+    if (!initialLoadDone) {
+      loadData();
+    }
+  }, [profile, learningPath, initialLoadDone]);
+
+  // Reload data when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      const refreshData = async () => {
+        await reloadLearningPath();
+        await loadData();
+      };
+      refreshData();
+    }, [reloadLearningPath])
+  );
 
   const loadData = async () => {
     if (!profile) return;
 
     try {
-      setLoading(true);
+      // Solo mostrar loading state en la carga inicial
+      if (!initialLoadDone) {
+        setLoading(true);
+      }
 
       // Obtener datos del estudiante
       const { data: student, error: studentError } = await supabase
@@ -77,6 +95,8 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       // Cargar clases de hoy
       const today = await calendarService.getTodayClasses(student.id);
       setTodayClasses(today);
+
+      setInitialLoadDone(true);
     } catch (error: any) {
       console.error('Error loading home data:', error);
       Alert.alert('Error', 'No se pudo cargar la información del inicio');
@@ -136,7 +156,8 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     }
   };
 
-  if (loading || pathLoading) {
+  // Solo mostrar loading screen en la carga inicial
+  if ((loading || pathLoading) && !initialLoadDone) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>

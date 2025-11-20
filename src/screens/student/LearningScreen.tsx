@@ -3,6 +3,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { theme } from '@/theme/theme';
 import { useLearningPath } from '@/hooks/useLearningPath';
 import LoadingScreen from '../shared/LoadingScreen';
@@ -14,8 +15,22 @@ type LearningScreenProps = {
 
 export default function LearningScreen({ navigation }: LearningScreenProps) {
     const { learningPath, loading, error, reload } = useLearningPath();
+    const [isRefreshing, setIsRefreshing] = React.useState(false);
 
-    if (loading) return <LoadingScreen />;
+    // Reload data when screen comes into focus (e.g., returning from VideoPlayerScreen)
+    useFocusEffect(
+      React.useCallback(() => {
+        const refreshData = async () => {
+          setIsRefreshing(true);
+          await reload();
+          setIsRefreshing(false);
+        };
+        refreshData();
+      }, [reload])
+    );
+
+    // Solo mostrar loading en la carga inicial, no en los refreshes
+    if (loading && !learningPath) return <LoadingScreen />;
 
     if (error) {
       return (

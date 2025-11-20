@@ -160,26 +160,27 @@ export interface Database {
             student_id: string;
             lesson_id: string;
             status: 'not_started' | 'in_progress' | 'completed';
+            progress_percentage: number | null;
             score: number | null;
+            started_at: string | null;
             completed_at: string | null;
-            created_at: string;
-            updated_at: string;
           };
           Insert: {
             id?: string;
             student_id: string;
             lesson_id: string;
             status?: 'not_started' | 'in_progress' | 'completed';
+            progress_percentage?: number | null;
             score?: number | null;
+            started_at?: string | null;
             completed_at?: string | null;
-            created_at?: string;
-            updated_at?: string;
           };
           Update: {
             status?: 'not_started' | 'in_progress' | 'completed';
+            progress_percentage?: number | null;
             score?: number | null;
+            started_at?: string | null;
             completed_at?: string | null;
-            updated_at?: string;
           };
           Relationships: [];
         };

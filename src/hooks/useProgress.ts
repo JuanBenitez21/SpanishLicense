@@ -50,11 +50,37 @@ export function useProgress() {
         throw new Error('Datos de estudiante no encontrados');
       }
 
-      // TODO: Implementar lessonService
-      // await lessonService.updateProgress(studentData.id, lessonId, percentage);
+      // Buscar si ya existe un registro de progreso
+      const { data: existingProgress } = await supabase
+        .from('student_progress')
+        .select('*')
+        .eq('student_id', studentData.id)
+        .eq('lesson_id', lessonId)
+        .single();
+
+      if (existingProgress) {
+        // Actualizar progreso existente
+        await supabase
+          .from('student_progress')
+          .update({
+            status: 'in_progress',
+            progress_percentage: percentage,
+          })
+          .eq('id', existingProgress.id);
+      } else {
+        // Crear nuevo registro de progreso
+        await supabase
+          .from('student_progress')
+          .insert({
+            student_id: studentData.id,
+            lesson_id: lessonId,
+            status: 'in_progress',
+            progress_percentage: percentage,
+            started_at: new Date().toISOString(),
+          });
+      }
     } catch (error) {
       console.error('Error updating progress:', error);
-      throw error;
     } finally {
       setUpdating(false);
     }
@@ -76,8 +102,41 @@ export function useProgress() {
         throw new Error('Datos de estudiante no encontrados');
       }
 
-      // TODO: Implementar lessonService
-      // await lessonService.completeLesson(studentData.id, lessonId, score);
+      // Buscar si ya existe un registro de progreso
+      const { data: existingProgress } = await supabase
+        .from('student_progress')
+        .select('*')
+        .eq('student_id', studentData.id)
+        .eq('lesson_id', lessonId)
+        .single();
+
+      if (existingProgress) {
+        // Actualizar progreso existente
+        await supabase
+          .from('student_progress')
+          .update({
+            status: 'completed',
+            progress_percentage: 100,
+            score: score || 100,
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', existingProgress.id);
+      } else {
+        // Crear nuevo registro de progreso completado
+        await supabase
+          .from('student_progress')
+          .insert({
+            student_id: studentData.id,
+            lesson_id: lessonId,
+            status: 'completed',
+            progress_percentage: 100,
+            score: score || 100,
+            started_at: new Date().toISOString(),
+            completed_at: new Date().toISOString(),
+          });
+      }
+
+      console.log('✅ Lección completada exitosamente');
     } catch (error) {
       console.error('Error completing lesson:', error);
       throw error;
