@@ -94,21 +94,40 @@ Las políticas han sido **simplificadas** para evitar el error de recursión inf
 
 Las restricciones más específicas por rol (estudiante, profesor, admin) deben implementarse en la **lógica de la aplicación**, no en las políticas RLS, para evitar problemas de recursión infinita.
 
+## Tablas Adicionales Requeridas
+
+Además de las tablas básicas (`profiles`, `students`, `teachers`), la aplicación requiere tablas adicionales para funcionalidades de quizzes y progreso.
+
+### Paso 4: Crear Tablas Adicionales
+
+1. En el SQL Editor de Supabase, abre una **nueva query**
+2. Copia y pega el contenido de `supabase_schema_additional.sql`
+3. Ejecuta el script
+
+Este script creará:
+- **quizzes**: Cuestionarios asociados a lecciones
+- **quiz_attempts**: Intentos de quizzes por estudiantes
+- **student_progress**: Progreso de estudiantes en lecciones
+
 ## Prueba de Funcionamiento
 
-Después de configurar las políticas:
+Después de configurar las políticas y crear las tablas adicionales:
 
 1. Limpia el almacenamiento de la app (si has intentado registrarte antes)
 2. Reinicia la aplicación
 3. Intenta crear una nueva cuenta
 4. El registro debería funcionar correctamente sin errores de RLS
 
-## Estructura de la Base de Datos
+## Estructura Completa de la Base de Datos
 
-Las tablas principales son:
-
+### Tablas Básicas (Usuario y Autenticación):
 - **profiles**: Información común de todos los usuarios
 - **students**: Información específica de estudiantes (referencia a profiles)
 - **teachers**: Información específica de profesores (referencia a profiles)
+
+### Tablas de Funcionalidad (Quizzes y Progreso):
+- **quizzes**: Cuestionarios creados por profesores
+- **quiz_attempts**: Intentos de quizzes realizados por estudiantes
+- **student_progress**: Seguimiento del progreso de estudiantes por lección
 
 La columna `role` en `profiles` determina el tipo de usuario y sus permisos.
