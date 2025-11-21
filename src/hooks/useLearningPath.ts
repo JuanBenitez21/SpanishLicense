@@ -60,13 +60,23 @@ export function useLearningPath() {
       if (progressError) throw progressError;
 
       // Combinar datos
-      const unitsWithLessons: UnitWithLessons[] = units.map(unit => {
+      const unitsWithLessons: UnitWithLessons[] = units.map((unit, unitIndex) => {
         const unitLessons = (lessons || []).filter(l => l.unit_id === unit.id);
 
-        const lessonsWithProgress: LessonWithProgress[] = unitLessons.map(lesson => {
+        const lessonsWithProgress: LessonWithProgress[] = unitLessons.map((lesson, lessonIndex) => {
           const progress = progressData?.find(p => p.lesson_id === lesson.id);
+
+          // Determinar si la lección está bloqueada para este estudiante:
+          // - La primera lección de la primera unidad siempre está desbloqueada
+          // - Una lección está desbloqueada si existe un registro en student_progress para ella
+          // - De lo contrario, está bloqueada
+          const isFirstLessonOfFirstUnit = unitIndex === 0 && lessonIndex === 0;
+          const hasProgressRecord = !!progress;
+          const isLocked = !isFirstLessonOfFirstUnit && !hasProgressRecord;
+
           return {
             ...lesson,
+            is_locked: isLocked,
             progress: progress || undefined
           };
         });
