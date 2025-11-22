@@ -13,8 +13,15 @@ import ProfileScreen from '@/screens/shared/ProfileScreen';
 import VideoPlayerScreen from '@/screens/student/VideoPlayerScreen';
 import QuizResultScreen from '@/screens/student/QuizResultScreen';
 import QuizScreen from '@/screens/student/QuizScreen';
+import ScheduleClassScreen from '@/screens/student/ScheduleClassScreen';
 
-type LearningStackParamList = {
+// Type definitions
+export type HomeStackParamList = {
+  HomeMain: undefined;
+  Profile: undefined;
+};
+
+export type LearningStackParamList = {
   LearningMain: undefined;
   VideoPlayer: {
     lesson: any;
@@ -27,20 +34,36 @@ type LearningStackParamList = {
   };
 };
 
-const Tab = createBottomTabNavigator();
-const Stack = createStackNavigator();
-const LearningStackNav = createStackNavigator<LearningStackParamList>();
+export type CalendarStackParamList = {
+  CalendarMain: undefined;
+  ScheduleClass: {
+    selectedDate?: string;
+    preselectedTeacherId?: string;
+  };
+};
 
-// Stack para cada tab (para poder navegar a otras pantallas)
+export type StudentTabParamList = {
+  Home: undefined;
+  Learning: undefined;
+  Calendar: undefined;
+};
+
+const Tab = createBottomTabNavigator<StudentTabParamList>();
+const HomeStackNav = createStackNavigator<HomeStackParamList>();
+const LearningStackNav = createStackNavigator<LearningStackParamList>();
+const CalendarStackNav = createStackNavigator<CalendarStackParamList>();
+
+// Stack para Home
 function HomeStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="HomeMain" component={HomeScreen} />
-      <Stack.Screen name="Profile" component={ProfileScreen} />
-    </Stack.Navigator>
+    <HomeStackNav.Navigator screenOptions={{ headerShown: false }}>
+      <HomeStackNav.Screen name="HomeMain" component={HomeScreen} />
+      <HomeStackNav.Screen name="Profile" component={ProfileScreen} />
+    </HomeStackNav.Navigator>
   );
 }
 
+// Stack para Learning
 function LearningStack() {
   return (
     <LearningStackNav.Navigator screenOptions={{ headerShown: false }}>
@@ -52,11 +75,19 @@ function LearningStack() {
   );
 }
 
+// Stack para Calendar
 function CalendarStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="CalendarMain" component={CalendarScreen} />
-    </Stack.Navigator>
+    <CalendarStackNav.Navigator screenOptions={{ headerShown: false }}>
+      <CalendarStackNav.Screen name="CalendarMain" component={CalendarScreen} />
+      <CalendarStackNav.Screen 
+        name="ScheduleClass" 
+        component={ScheduleClassScreen}
+        options={{
+          presentation: 'modal',
+        }}
+      />
+    </CalendarStackNav.Navigator>
   );
 }
 

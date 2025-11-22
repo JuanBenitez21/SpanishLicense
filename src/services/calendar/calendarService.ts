@@ -5,6 +5,7 @@ import {
   TeacherAvailability,
   AvailableSlot,
   CreateClassData,
+  TeacherWithAvailability,
 } from '@/types/calendar.types';
 
 export class CalendarService {
@@ -33,6 +34,7 @@ export class CalendarService {
         .eq('student_id', studentId)
         .gte('scheduled_date', startDate)
         .lte('scheduled_date', endDate)
+        .neq('status', 'cancelled')
         .order('scheduled_date', { ascending: true })
         .order('start_time', { ascending: true });
 
@@ -70,6 +72,7 @@ export class CalendarService {
         .eq('teacher_id', teacherId)
         .gte('scheduled_date', startDate)
         .lte('scheduled_date', endDate)
+        .neq('status', 'cancelled')
         .order('scheduled_date', { ascending: true })
         .order('start_time', { ascending: true });
 
@@ -110,7 +113,7 @@ export class CalendarService {
         .order('scheduled_date', { ascending: true })
         .order('start_time', { ascending: true })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== 'PGRST116') throw error;
 
@@ -143,7 +146,7 @@ export class CalendarService {
         `)
         .eq('student_id', studentId)
         .eq('scheduled_date', today)
-        .eq('status', 'scheduled')
+        .in('status', ['scheduled', 'in_progress'])
         .order('start_time', { ascending: true });
 
       if (error) throw error;
@@ -151,7 +154,7 @@ export class CalendarService {
       return (data as any) || [];
     } catch (error) {
       console.error('Error getting today classes:', error);
-      throw error;
+      return [];
     }
   }
 
@@ -164,18 +167,20 @@ export class CalendarService {
     month: number
   ): Promise<number[]> {
     try {
-      // Obtener el último día del mes correctamente
-      const lastDay = new Date(year, month, 0).getDate();
+      // Calcular primer y último día del mes
+      const firstDay = new Date(year, month - 1, 1);
+      const lastDay = new Date(year, month, 0);
 
-      const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-      const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      const startDate = firstDay.toISOString().split('T')[0];
+      const endDate = lastDay.toISOString().split('T')[0];
 
       const { data, error } = await supabase
         .from('scheduled_classes')
         .select('scheduled_date')
         .eq('student_id', studentId)
         .gte('scheduled_date', startDate)
-        .lte('scheduled_date', endDate);
+        .lte('scheduled_date', endDate)
+        .neq('status', 'cancelled');
 
       if (error) throw error;
 
@@ -223,7 +228,8 @@ export class CalendarService {
     date: string
   ): Promise<AvailableSlot[]> {
     try {
-      const dayOfWeek = new Date(date).getDay();
+      const targetDate = new Date(date + 'T00:00:00');
+      const dayOfWeek = targetDate.getDay();
 
       // Obtener disponibilidad del profesor para ese día
       const { data: availability, error: availError } = await supabase
@@ -246,24 +252,25 @@ export class CalendarService {
 
       if (classesError) throw classesError;
 
-      // Generar slots disponibles
-      const slots: AvailableSlot[] = [];
+      // Generar slots disponibles (slots de 1 hora)
+      const slotsMap = new Map<string, AvailableSlot>(); // Usar Map para evitar duplicados
+      const bookedTimes = new Set(
+        bookedClasses?.map(bc => bc.start_time.substring(0, 5)) || []
+      );
 
       for (const slot of availability) {
+        // Parsear horas de inicio y fin
         const startHour = parseInt(slot.start_time.split(':')[0]);
         const endHour = parseInt(slot.end_time.split(':')[0]);
 
+        // Generar slots de 1 hora
         for (let hour = startHour; hour < endHour; hour++) {
           const slotStartTime = `${String(hour).padStart(2, '0')}:00`;
           const slotEndTime = `${String(hour + 1).padStart(2, '0')}:00`;
 
-          // Verificar si el slot está disponible
-          const isBooked = bookedClasses?.some((booked) => {
-            return slotStartTime >= booked.start_time && slotStartTime < booked.end_time;
-          });
-
-          if (!isBooked) {
-            slots.push({
+          // Verificar si el slot NO está reservado y NO está ya en el Map
+          if (!bookedTimes.has(slotStartTime) && !slotsMap.has(slotStartTime)) {
+            slotsMap.set(slotStartTime, {
               date,
               start_time: slotStartTime,
               end_time: slotEndTime,
@@ -273,6 +280,10 @@ export class CalendarService {
         }
       }
 
+      // Convertir Map a array y ordenar por hora
+      const slots = Array.from(slotsMap.values());
+      slots.sort((a, b) => a.start_time.localeCompare(b.start_time));
+
       return slots;
     } catch (error) {
       console.error('Error getting available slots:', error);
@@ -281,10 +292,48 @@ export class CalendarService {
   }
 
   /**
+   * Verifica si un slot específico está disponible
+   */
+  async isSlotAvailable(
+    teacherId: string,
+    date: string,
+    startTime: string
+  ): Promise<boolean> {
+    try {
+      const { data, error } = await supabase
+        .from('scheduled_classes')
+        .select('id')
+        .eq('teacher_id', teacherId)
+        .eq('scheduled_date', date)
+        .eq('start_time', startTime)
+        .neq('status', 'cancelled')
+        .maybeSingle();
+
+      if (error) throw error;
+
+      return data === null; // Disponible si no hay clase
+    } catch (error) {
+      console.error('Error checking slot availability:', error);
+      return false;
+    }
+  }
+
+  /**
    * Crea una nueva clase programada
    */
-  async scheduleClass(classData: CreateClassData): Promise<ScheduledClass | null> {
+  async scheduleClass(classData: CreateClassData): Promise<ScheduledClass> {
     try {
+      // Verificar disponibilidad primero
+      const isAvailable = await this.isSlotAvailable(
+        classData.teacher_id,
+        classData.scheduled_date,
+        classData.start_time
+      );
+
+      if (!isAvailable) {
+        throw new Error('Este horario ya no está disponible. Por favor selecciona otro.');
+      }
+
       const { data, error } = await supabase
         .from('scheduled_classes')
         .insert({
@@ -295,6 +344,7 @@ export class CalendarService {
           end_time: classData.end_time,
           duration_minutes: classData.duration_minutes || 60,
           class_type: classData.class_type || 'individual',
+          status: 'scheduled',
           notes: classData.notes,
         })
         .select()
@@ -303,7 +353,7 @@ export class CalendarService {
       if (error) throw error;
 
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error scheduling class:', error);
       throw error;
     }
@@ -312,11 +362,15 @@ export class CalendarService {
   /**
    * Cancela una clase
    */
-  async cancelClass(classId: string): Promise<void> {
+  async cancelClass(classId: string, reason?: string): Promise<void> {
     try {
       const { error } = await supabase
         .from('scheduled_classes')
-        .update({ status: 'cancelled' })
+        .update({
+          status: 'cancelled',
+          cancellation_reason: reason,
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', classId);
 
       if (error) throw error;
@@ -333,7 +387,10 @@ export class CalendarService {
     try {
       const { error } = await supabase
         .from('scheduled_classes')
-        .update({ status: 'in_progress' })
+        .update({
+          status: 'in_progress',
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', classId);
 
       if (error) throw error;
@@ -348,20 +405,27 @@ export class CalendarService {
    */
   async completeClass(classId: string): Promise<void> {
     try {
-      const { error } = await supabase
+      // Actualizar estado de la clase
+      const { error: updateError } = await supabase
         .from('scheduled_classes')
-        .update({ status: 'completed' })
+        .update({
+          status: 'completed',
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', classId);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
-      // Incrementar contador de clases completadas del estudiante
-      const { data: classData } = await supabase
+      // Obtener student_id de la clase
+      const { data: classData, error: fetchError } = await supabase
         .from('scheduled_classes')
         .select('student_id')
         .eq('id', classId)
         .single();
 
+      if (fetchError) throw fetchError;
+
+      // Incrementar contador de clases completadas del estudiante
       if (classData) {
         await supabase.rpc('increment_student_classes', {
           student_id: classData.student_id,
@@ -376,7 +440,7 @@ export class CalendarService {
   /**
    * Obtiene todos los profesores con su disponibilidad
    */
-  async getAvailableTeachers(): Promise<any[]> {
+  async getAvailableTeachers(): Promise<TeacherWithAvailability[]> {
     try {
       const { data, error } = await supabase
         .from('teachers')
@@ -385,25 +449,142 @@ export class CalendarService {
           bio,
           average_rating,
           total_students,
-          user:profiles!teachers_user_id_fkey (
+          user:user_id (
             first_name,
             last_name,
             avatar_url
           ),
           availability:teacher_availability (
+            id,
+            teacher_id,
             day_of_week,
             start_time,
-            end_time
+            end_time,
+            is_active
           )
         `)
         .order('average_rating', { ascending: false });
 
       if (error) throw error;
 
-      return data || [];
+      // Filtrar profesores que tienen al menos un día de disponibilidad activa
+      const teachersWithAvailability = (data || []).filter(
+        (teacher: any) => teacher.availability?.some((a: any) => a.is_active)
+      );
+
+      return teachersWithAvailability as any;
     } catch (error) {
       console.error('Error getting available teachers:', error);
       return [];
+    }
+  }
+
+  /**
+   * Obtiene un profesor específico con su disponibilidad
+   */
+  async getTeacherWithAvailability(teacherId: string): Promise<TeacherWithAvailability | null> {
+    try {
+      const { data, error } = await supabase
+        .from('teachers')
+        .select(`
+          id,
+          bio,
+          average_rating,
+          total_students,
+          user:user_id (
+            first_name,
+            last_name,
+            avatar_url
+          ),
+          availability:teacher_availability (
+            id,
+            teacher_id,
+            day_of_week,
+            start_time,
+            end_time,
+            is_active
+          )
+        `)
+        .eq('id', teacherId)
+        .single();
+
+      if (error) throw error;
+
+      return data as any;
+    } catch (error) {
+      console.error('Error getting teacher with availability:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Actualiza la disponibilidad de un profesor (para uso del profesor)
+   */
+  async updateTeacherAvailability(
+    teacherId: string,
+    availability: Omit<TeacherAvailability, 'id' | 'teacher_id' | 'created_at' | 'updated_at'>[]
+  ): Promise<void> {
+    try {
+      // Eliminar disponibilidad existente
+      const { error: deleteError } = await supabase
+        .from('teacher_availability')
+        .delete()
+        .eq('teacher_id', teacherId);
+
+      if (deleteError) throw deleteError;
+
+      // Insertar nueva disponibilidad
+      if (availability.length > 0) {
+        const newAvailability = availability.map(a => ({
+          teacher_id: teacherId,
+          day_of_week: a.day_of_week,
+          start_time: a.start_time,
+          end_time: a.end_time,
+          is_active: a.is_active,
+        }));
+
+        const { error: insertError } = await supabase
+          .from('teacher_availability')
+          .insert(newAvailability);
+
+        if (insertError) throw insertError;
+      }
+    } catch (error) {
+      console.error('Error updating teacher availability:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Auto-completa clases que ya pasaron su hora de finalización
+   */
+  async autoCompleteExpiredClasses(): Promise<void> {
+    try {
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+      const currentTime = now.toTimeString().split(' ')[0].substring(0, 5);
+
+      // Buscar clases que deberían estar completadas
+      // (fecha anterior a hoy O fecha de hoy pero hora de fin ya pasó)
+      const { data: expiredClasses, error: fetchError } = await supabase
+        .from('scheduled_classes')
+        .select('id, scheduled_date, end_time, student_id')
+        .in('status', ['scheduled', 'in_progress'])
+        .or(`scheduled_date.lt.${today},and(scheduled_date.eq.${today},end_time.lt.${currentTime})`);
+
+      if (fetchError) throw fetchError;
+
+      if (expiredClasses && expiredClasses.length > 0) {
+        console.log(`Auto-completando ${expiredClasses.length} clases expiradas`);
+
+        // Actualizar cada clase a completada
+        for (const classItem of expiredClasses) {
+          await this.completeClass(classItem.id);
+        }
+      }
+    } catch (error) {
+      console.error('Error auto-completing expired classes:', error);
+      // No lanzamos el error para que no afecte el flujo principal
     }
   }
 }

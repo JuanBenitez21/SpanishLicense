@@ -1,4 +1,4 @@
-// src/screens/student/CalendarScreen.tsx
+// src/screens/teacher/TeacherCalendarScreen.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -25,70 +25,66 @@ const MONTHS = [
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
 ];
 
-type CalendarScreenProps = {
+type TeacherCalendarScreenProps = {
   navigation: any;
 };
 
-export default function CalendarScreen({ navigation }: CalendarScreenProps) {
+export default function TeacherCalendarScreen({ navigation }: TeacherCalendarScreenProps) {
   const { profile } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [daysWithClasses, setDaysWithClasses] = useState<number[]>([]);
   const [selectedDayClasses, setSelectedDayClasses] = useState<ScheduledClass[]>([]);
-  const [studentId, setStudentId] = useState<string | null>(null);
+  const [teacherId, setTeacherId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingClasses, setLoadingClasses] = useState(false);
 
-  // Cargar studentId inicial
   useEffect(() => {
-    loadStudentId();
+    loadTeacherId();
   }, [profile]);
 
-  // Cargar datos del calendario cuando cambia el mes
   useEffect(() => {
-    if (studentId) {
+    if (teacherId) {
       loadCalendarData();
     }
-  }, [studentId, currentDate]);
+  }, [teacherId, currentDate]);
 
-  // Cargar clases cuando cambia la fecha seleccionada
   useEffect(() => {
-    if (studentId && selectedDate) {
+    if (teacherId && selectedDate) {
       loadSelectedDayClasses();
     }
-  }, [studentId, selectedDate]);
+  }, [teacherId, selectedDate]);
 
-  // Recargar datos cuando la pantalla entra en foco
   useFocusEffect(
     useCallback(() => {
-      if (studentId) {
+      if (teacherId) {
         loadCalendarData();
         loadSelectedDayClasses();
       }
-    }, [studentId])
+    }, [teacherId])
   );
 
-  const loadStudentId = async () => {
+  const loadTeacherId = async () => {
     if (!profile) return;
 
     try {
       const { data, error } = await supabase
-        .from('students')
+        .from('teachers')
         .select('id')
         .eq('user_id', profile.id)
         .single();
 
       if (error) throw error;
-      setStudentId(data.id);
+      setTeacherId(data.id);
     } catch (error) {
-      console.error('Error loading student id:', error);
+      console.error('Error loading teacher id:', error);
       Alert.alert('Error', 'No se pudo cargar la información del calendario');
     }
   };
 
   const loadCalendarData = async () => {
-    if (!studentId) return;
+    if (!teacherId) return;
 
     try {
       setLoading(true);
@@ -99,8 +95,30 @@ export default function CalendarScreen({ navigation }: CalendarScreenProps) {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth() + 1;
 
-      const days = await calendarService.getDaysWithClasses(studentId, year, month);
-      setDaysWithClasses(days);
+      // Calcular rango de fechas del mes
+      const firstDay = new Date(year, month - 1, 1);
+      const lastDay = new Date(year, month, 0);
+
+      const startDate = firstDay.toISOString().split('T')[0];
+      const endDate = lastDay.toISOString().split('T')[0];
+
+      const { data, error } = await supabase
+        .from('scheduled_classes')
+        .select('scheduled_date')
+        .eq('teacher_id', teacherId)
+        .gte('scheduled_date', startDate)
+        .lte('scheduled_date', endDate)
+        .neq('status', 'cancelled');
+
+      if (error) throw error;
+
+      const days = new Set<number>();
+      data?.forEach((item) => {
+        const day = parseInt(item.scheduled_date.split('-')[2]);
+        days.add(day);
+      });
+
+      setDaysWithClasses(Array.from(days));
     } catch (error) {
       console.error('Error loading calendar data:', error);
     } finally {
@@ -109,14 +127,14 @@ export default function CalendarScreen({ navigation }: CalendarScreenProps) {
   };
 
   const loadSelectedDayClasses = async () => {
-    if (!studentId) return;
+    if (!teacherId) return;
 
     try {
       setLoadingClasses(true);
       const dateStr = selectedDate.toISOString().split('T')[0];
 
-      const classes = await calendarService.getStudentClasses(
-        studentId,
+      const classes = await calendarService.getTeacherClasses(
+        teacherId,
         dateStr,
         dateStr
       );
@@ -144,13 +162,11 @@ export default function CalendarScreen({ navigation }: CalendarScreenProps) {
     const startingDayOfWeek = firstDay.getDay();
 
     const days: (number | null)[] = [];
-    
-    // Días vacíos al inicio
+
     for (let i = 0; i < startingDayOfWeek; i++) {
       days.push(null);
     }
 
-    // Días del mes
     for (let i = 1; i <= daysInMonth; i++) {
       days.push(i);
     }
@@ -175,17 +191,14 @@ export default function CalendarScreen({ navigation }: CalendarScreenProps) {
     setSelectedDate(newDate);
   };
 
-  const handleScheduleClass = () => {
-    // Navegar a la pantalla de agendar clase con la fecha seleccionada
-    navigation.navigate('ScheduleClass', {
-      selectedDate: selectedDate.toISOString(),
-    });
+  const handleManageAvailability = () => {
+    navigation.navigate('ManageAvailability');
   };
 
   const handleCancelClass = async (classItem: ScheduledClass) => {
     Alert.alert(
       'Cancelar Clase',
-      `¿Estás seguro de que deseas cancelar la clase con ${classItem.teacher?.user.first_name}?`,
+      `¿Estás seguro de que deseas cancelar la clase con ${classItem.student?.user.first_name}?`,
       [
         { text: 'No', style: 'cancel' },
         {
@@ -193,7 +206,7 @@ export default function CalendarScreen({ navigation }: CalendarScreenProps) {
           style: 'destructive',
           onPress: async () => {
             try {
-              await calendarService.cancelClass(classItem.id);
+              await calendarService.cancelClass(classItem.id, 'Cancelada por el profesor');
               await loadSelectedDayClasses();
               await loadCalendarData();
               Alert.alert('Éxito', 'La clase ha sido cancelada');
@@ -209,19 +222,12 @@ export default function CalendarScreen({ navigation }: CalendarScreenProps) {
   const handleStartClass = async (classItem: ScheduledClass) => {
     try {
       await calendarService.startClass(classItem.id);
-      // TODO: Navegar a pantalla de videollamada
       Alert.alert(
-        'Iniciando clase', 
+        'Iniciando clase',
         'Redirigiendo a la sala de videollamada...',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // navigation.navigate('VideoCall', { classId: classItem.id });
-            }
-          }
-        ]
+        [{ text: 'OK' }]
       );
+      await loadSelectedDayClasses();
     } catch (error) {
       Alert.alert('Error', 'No se pudo iniciar la clase');
     }
@@ -269,17 +275,15 @@ export default function CalendarScreen({ navigation }: CalendarScreenProps) {
 
   const canStartClass = (classItem: ScheduledClass) => {
     if (classItem.status !== 'scheduled') return false;
-    
+
     const now = new Date();
     const classDate = new Date(classItem.scheduled_date);
     const [hours, minutes] = classItem.start_time.split(':').map(Number);
     classDate.setHours(hours, minutes, 0, 0);
-    
-    // Permitir iniciar 15 minutos antes
+
     const startWindow = new Date(classDate.getTime() - 15 * 60000);
-    // Permitir iniciar hasta 30 minutos después
     const endWindow = new Date(classDate.getTime() + 30 * 60000);
-    
+
     return now >= startWindow && now <= endWindow;
   };
 
@@ -302,16 +306,16 @@ export default function CalendarScreen({ navigation }: CalendarScreenProps) {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Calendario</Text>
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={handleScheduleClass}
-        >
-          <Ionicons name="add" size={24} color={theme.colors.primary.main} />
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color={theme.colors.text.primary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Mi Calendario</Text>
+        <TouchableOpacity style={styles.settingsButton} onPress={handleManageAvailability}>
+          <Ionicons name="settings-outline" size={24} color={theme.colors.primary.main} />
         </TouchableOpacity>
       </View>
 
-      <ScrollView 
+      <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -369,7 +373,6 @@ export default function CalendarScreen({ navigation }: CalendarScreenProps) {
                     past && styles.dayCellPast,
                   ]}
                   onPress={() => handleDayPress(day)}
-                  disabled={past}
                 >
                   <Text
                     style={[
@@ -405,8 +408,8 @@ export default function CalendarScreen({ navigation }: CalendarScreenProps) {
         <View style={styles.classesSection}>
           <View style={styles.classesSectionHeader}>
             <Text style={styles.classesSectionTitle}>
-              {selectedDate.toDateString() === new Date().toDateString() 
-                ? 'Clases de Hoy' 
+              {selectedDate.toDateString() === new Date().toDateString()
+                ? 'Clases de Hoy'
                 : `Clases del ${selectedDate.getDate()} de ${MONTHS[selectedDate.getMonth()]}`}
             </Text>
             {selectedDayClasses.length > 0 && (
@@ -445,15 +448,15 @@ export default function CalendarScreen({ navigation }: CalendarScreenProps) {
                       </Text>
                     </View>
 
-                    {/* Teacher Info */}
+                    {/* Student Info */}
                     <View style={styles.classInfo}>
-                      <View style={styles.teacherInfo}>
-                        <View style={styles.teacherAvatar}>
+                      <View style={styles.studentInfo}>
+                        <View style={styles.studentAvatar}>
                           <Ionicons name="person" size={24} color={theme.colors.primary.main} />
                         </View>
-                        <View style={styles.teacherDetails}>
-                          <Text style={styles.teacherName}>
-                            Prof. {classItem.teacher?.user.first_name} {classItem.teacher?.user.last_name}
+                        <View style={styles.studentDetails}>
+                          <Text style={styles.studentName}>
+                            {classItem.student?.user.first_name} {classItem.student?.user.last_name}
                           </Text>
                           <Text style={styles.classType}>
                             Clase {classItem.class_type === 'individual' ? 'Individual' : 'Grupal'}
@@ -488,7 +491,7 @@ export default function CalendarScreen({ navigation }: CalendarScreenProps) {
                               {canStart ? 'Iniciar Clase' : 'No disponible aún'}
                             </Text>
                           </TouchableOpacity>
-                          
+
                           <TouchableOpacity
                             style={styles.cancelButton}
                             onPress={() => handleCancelClass(classItem)}
@@ -522,10 +525,10 @@ export default function CalendarScreen({ navigation }: CalendarScreenProps) {
             </View>
           )}
 
-          {/* Add Class Button */}
-          <TouchableOpacity style={styles.addClassButton} onPress={handleScheduleClass}>
-            <Ionicons name="add-circle-outline" size={24} color={theme.colors.primary.main} />
-            <Text style={styles.addClassButtonText}>Agendar nueva clase</Text>
+          {/* Manage Availability Button */}
+          <TouchableOpacity style={styles.availabilityButton} onPress={handleManageAvailability}>
+            <Ionicons name="time-outline" size={24} color={theme.colors.primary.main} />
+            <Text style={styles.availabilityButtonText}>Gestionar Disponibilidad</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -540,24 +543,26 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 22,
-    paddingVertical: 20,
+    paddingVertical: 16,
     backgroundColor: theme.colors.background.paper,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  backButton: {
+    padding: 8,
+    marginLeft: -8,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '600',
     color: theme.colors.text.primary,
   },
-  addButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.primary.main + '20',
-    justifyContent: 'center',
-    alignItems: 'center',
+  settingsButton: {
+    padding: 8,
+    marginRight: -8,
   },
   monthNavigator: {
     flexDirection: 'row',
@@ -586,7 +591,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   dayLabel: {
-    flex: 1,
+    width: '14.28%',
     fontSize: 12,
     fontWeight: '600',
     color: theme.colors.text.disabled,
@@ -602,7 +607,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
   },
   dayCell: {
-    width: '14.28%', // 100% / 7 días
+    width: '14.28%',
     aspectRatio: 1,
     justifyContent: 'center',
     alignItems: 'center',
@@ -736,12 +741,12 @@ const styles = StyleSheet.create({
   classInfo: {
     gap: 16,
   },
-  teacherInfo: {
+  studentInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  teacherAvatar: {
+  studentAvatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
@@ -749,10 +754,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  teacherDetails: {
+  studentDetails: {
     flex: 1,
   },
-  teacherName: {
+  studentName: {
     fontSize: 16,
     fontWeight: '600',
     color: theme.colors.text.primary,
@@ -840,7 +845,7 @@ const styles = StyleSheet.create({
     color: theme.colors.text.secondary,
     textAlign: 'center',
   },
-  addClassButton: {
+  availabilityButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -853,7 +858,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     marginTop: 20,
   },
-  addClassButtonText: {
+  availabilityButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: theme.colors.primary.main,
