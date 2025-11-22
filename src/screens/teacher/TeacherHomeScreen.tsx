@@ -48,6 +48,9 @@ export default function TeacherHomeScreen({ navigation }: TeacherHomeScreenProps
     try {
       setLoading(true);
 
+      // Auto-completar clases expiradas primero
+      await calendarService.autoCompleteExpiredClasses();
+
       // Obtener teacher_id
       const { data: teacher, error: teacherError } = await supabase
         .from('teachers')

@@ -7,6 +7,7 @@ import { theme } from '@/theme/theme';
 // Screens
 import TeacherHomeScreen from '@/screens/teacher/TeacherHomeScreen';
 import StudentsScreen from '@/screens/teacher/StudentsScreen';
+import StudentDetailScreen from '@/screens/teacher/StudentDetailScreen';
 import TeacherCalendarScreen from '@/screens/teacher/TeacherCalendarScreen';
 import ManageAvailabilityScreen from '@/screens/teacher/ManageAvailabilityScreen';
 import ProfileScreen from '@/screens/shared/ProfileScreen';
@@ -28,6 +29,7 @@ function StudentsStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="StudentsMain" component={StudentsScreen} />
+      <Stack.Screen name="StudentDetail" component={StudentDetailScreen} />
     </Stack.Navigator>
   );
 }

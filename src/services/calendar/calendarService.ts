@@ -554,6 +554,39 @@ export class CalendarService {
       throw error;
     }
   }
+
+  /**
+   * Auto-completa clases que ya pasaron su hora de finalización
+   */
+  async autoCompleteExpiredClasses(): Promise<void> {
+    try {
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+      const currentTime = now.toTimeString().split(' ')[0].substring(0, 5);
+
+      // Buscar clases que deberían estar completadas
+      // (fecha anterior a hoy O fecha de hoy pero hora de fin ya pasó)
+      const { data: expiredClasses, error: fetchError } = await supabase
+        .from('scheduled_classes')
+        .select('id, scheduled_date, end_time, student_id')
+        .in('status', ['scheduled', 'in_progress'])
+        .or(`scheduled_date.lt.${today},and(scheduled_date.eq.${today},end_time.lt.${currentTime})`);
+
+      if (fetchError) throw fetchError;
+
+      if (expiredClasses && expiredClasses.length > 0) {
+        console.log(`Auto-completando ${expiredClasses.length} clases expiradas`);
+
+        // Actualizar cada clase a completada
+        for (const classItem of expiredClasses) {
+          await this.completeClass(classItem.id);
+        }
+      }
+    } catch (error) {
+      console.error('Error auto-completing expired classes:', error);
+      // No lanzamos el error para que no afecte el flujo principal
+    }
+  }
 }
 
 export const calendarService = new CalendarService();

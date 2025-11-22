@@ -27,7 +27,7 @@ interface StudentData {
   progress?: number;
 }
 
-export default function StudentsScreen() {
+export default function StudentsScreen({ navigation }: any) {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -243,7 +243,11 @@ export default function StudentsScreen() {
         <View style={styles.studentsList}>
           {filteredStudents.length > 0 ? (
             filteredStudents.map((student) => (
-              <TouchableOpacity key={student.id} style={styles.studentCard}>
+              <TouchableOpacity
+                key={student.id}
+                style={styles.studentCard}
+                onPress={() => navigation.navigate('StudentDetail', { studentId: student.id })}
+              >
                 <View style={styles.studentAvatar}>
                   <Ionicons name="person" size={32} color={theme.colors.primary.main} />
                 </View>

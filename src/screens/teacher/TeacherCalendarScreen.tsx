@@ -88,6 +88,10 @@ export default function TeacherCalendarScreen({ navigation }: TeacherCalendarScr
 
     try {
       setLoading(true);
+
+      // Auto-completar clases expiradas primero
+      await calendarService.autoCompleteExpiredClasses();
+
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth() + 1;
 
