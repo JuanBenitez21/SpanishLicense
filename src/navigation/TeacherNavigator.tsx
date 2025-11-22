@@ -7,7 +7,8 @@ import { theme } from '@/theme/theme';
 // Screens
 import TeacherHomeScreen from '@/screens/teacher/TeacherHomeScreen';
 import StudentsScreen from '@/screens/teacher/StudentsScreen';
-import CalendarScreen from '@/screens/student/CalendarScreen'; // Reutilizamos el calendario
+import TeacherCalendarScreen from '@/screens/teacher/TeacherCalendarScreen';
+import ManageAvailabilityScreen from '@/screens/teacher/ManageAvailabilityScreen';
 import ProfileScreen from '@/screens/shared/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
@@ -34,7 +35,8 @@ function StudentsStack() {
 function CalendarStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="CalendarMain" component={CalendarScreen} />
+      <Stack.Screen name="CalendarMain" component={TeacherCalendarScreen} />
+      <Stack.Screen name="ManageAvailability" component={ManageAvailabilityScreen} />
     </Stack.Navigator>
   );
 }
