@@ -164,6 +164,8 @@ export interface Database {
             score: number | null;
             started_at: string | null;
             completed_at: string | null;
+            created_at: string;
+            updated_at: string;
           };
           Insert: {
             id?: string;
@@ -174,6 +176,8 @@ export interface Database {
             score?: number | null;
             started_at?: string | null;
             completed_at?: string | null;
+            created_at?: string;
+            updated_at?: string;
           };
           Update: {
             status?: 'not_started' | 'in_progress' | 'completed';
@@ -181,6 +185,7 @@ export interface Database {
             score?: number | null;
             started_at?: string | null;
             completed_at?: string | null;
+            updated_at?: string;
           };
           Relationships: [];
         };
@@ -326,6 +331,64 @@ export interface Database {
           };
           Relationships: [];
         };
+        chat_conversations: {
+          Row: {
+            id: string;
+            student_id: string;
+            teacher_id: string;
+            last_message: string | null;
+            last_message_at: string | null;
+            student_unread_count: number;
+            teacher_unread_count: number;
+            created_at: string;
+            updated_at: string;
+          };
+          Insert: {
+            id?: string;
+            student_id: string;
+            teacher_id: string;
+            last_message?: string | null;
+            last_message_at?: string | null;
+            student_unread_count?: number;
+            teacher_unread_count?: number;
+            created_at?: string;
+            updated_at?: string;
+          };
+          Update: {
+            last_message?: string | null;
+            last_message_at?: string | null;
+            student_unread_count?: number;
+            teacher_unread_count?: number;
+            updated_at?: string;
+          };
+          Relationships: [];
+        };
+        chat_messages: {
+          Row: {
+            id: string;
+            conversation_id: string;
+            sender_id: string;
+            content: string;
+            is_read: boolean;
+            created_at: string;
+            updated_at: string;
+          };
+          Insert: {
+            id?: string;
+            conversation_id: string;
+            sender_id: string;
+            content: string;
+            is_read?: boolean;
+            created_at?: string;
+            updated_at?: string;
+          };
+          Update: {
+            content?: string;
+            is_read?: boolean;
+            updated_at?: string;
+          };
+          Relationships: [];
+        };
       };
       Views: {
         [_ in never]: never;
@@ -333,6 +396,10 @@ export interface Database {
       Functions: {
         increment_student_classes: {
           Args: { student_id: string };
+          Returns: void;
+        };
+        mark_messages_as_read: {
+          Args: { p_conversation_id: string; p_user_id: string };
           Returns: void;
         };
       };

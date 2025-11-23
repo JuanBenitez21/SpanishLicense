@@ -14,11 +14,19 @@ import VideoPlayerScreen from '@/screens/student/VideoPlayerScreen';
 import QuizResultScreen from '@/screens/student/QuizResultScreen';
 import QuizScreen from '@/screens/student/QuizScreen';
 import ScheduleClassScreen from '@/screens/student/ScheduleClassScreen';
+import ChatListScreen from '@/screens/shared/ChatListScreen';
+import ChatScreen from '@/screens/shared/ChatScreen';
 
 // Type definitions
 export type HomeStackParamList = {
   HomeMain: undefined;
   Profile: undefined;
+  ChatList: undefined;
+  Chat: {
+    conversationId?: string;
+    teacherId?: string;
+    teacherName?: string;
+  };
 };
 
 export type LearningStackParamList = {
@@ -59,6 +67,8 @@ function HomeStack() {
     <HomeStackNav.Navigator screenOptions={{ headerShown: false }}>
       <HomeStackNav.Screen name="HomeMain" component={HomeScreen} />
       <HomeStackNav.Screen name="Profile" component={ProfileScreen} />
+      <HomeStackNav.Screen name="ChatList" component={ChatListScreen} />
+      <HomeStackNav.Screen name="Chat" component={ChatScreen} />
     </HomeStackNav.Navigator>
   );
 }
@@ -80,8 +90,8 @@ function CalendarStack() {
   return (
     <CalendarStackNav.Navigator screenOptions={{ headerShown: false }}>
       <CalendarStackNav.Screen name="CalendarMain" component={CalendarScreen} />
-      <CalendarStackNav.Screen 
-        name="ScheduleClass" 
+      <CalendarStackNav.Screen
+        name="ScheduleClass"
         component={ScheduleClassScreen}
         options={{
           presentation: 'modal',
@@ -128,18 +138,18 @@ export default function StudentNavigator() {
         },
       })}
     >
-      <Tab.Screen 
-        name="Home" 
+      <Tab.Screen
+        name="Home"
         component={HomeStack}
         options={{ tabBarLabel: 'Inicio' }}
       />
-      <Tab.Screen 
-        name="Learning" 
+      <Tab.Screen
+        name="Learning"
         component={LearningStack}
         options={{ tabBarLabel: 'Aprender' }}
       />
-      <Tab.Screen 
-        name="Calendar" 
+      <Tab.Screen
+        name="Calendar"
         component={CalendarStack}
         options={{ tabBarLabel: 'Calendario' }}
       />

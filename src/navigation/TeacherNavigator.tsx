@@ -11,6 +11,9 @@ import StudentDetailScreen from '@/screens/teacher/StudentDetailScreen';
 import TeacherCalendarScreen from '@/screens/teacher/TeacherCalendarScreen';
 import ManageAvailabilityScreen from '@/screens/teacher/ManageAvailabilityScreen';
 import ProfileScreen from '@/screens/shared/ProfileScreen';
+import ChatListScreen from '@/screens/shared/ChatListScreen';
+import ChatScreen from '@/screens/shared/ChatScreen';
+import SelectStudentScreen from '@/screens/shared/SelectStudentScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -21,6 +24,9 @@ function HomeStack() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="TeacherHomeMain" component={TeacherHomeScreen} />
       <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="ChatList" component={ChatListScreen} />
+      <Stack.Screen name="Chat" component={ChatScreen} />
+      <Stack.Screen name="SelectStudent" component={SelectStudentScreen} />
     </Stack.Navigator>
   );
 }
@@ -80,18 +86,18 @@ export default function TeacherNavigator() {
         },
       })}
     >
-      <Tab.Screen 
-        name="Home" 
+      <Tab.Screen
+        name="Home"
         component={HomeStack}
         options={{ tabBarLabel: 'Inicio' }}
       />
-      <Tab.Screen 
-        name="Students" 
+      <Tab.Screen
+        name="Students"
         component={StudentsStack}
         options={{ tabBarLabel: 'Estudiantes' }}
       />
-      <Tab.Screen 
-        name="Calendar" 
+      <Tab.Screen
+        name="Calendar"
         component={CalendarStack}
         options={{ tabBarLabel: 'Calendario' }}
       />

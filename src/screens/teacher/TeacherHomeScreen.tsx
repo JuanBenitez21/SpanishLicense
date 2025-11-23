@@ -336,7 +336,10 @@ export default function TeacherHomeScreen({ navigation }: TeacherHomeScreenProps
               <Text style={styles.actionText}>Estadísticas</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => navigation.navigate('ChatList')}
+            >
               <View style={[styles.actionIcon, { backgroundColor: theme.colors.info + '20' }]}>
                 <Ionicons name="chatbubbles-outline" size={28} color={theme.colors.info} />
               </View>
