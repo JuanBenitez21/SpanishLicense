@@ -30,13 +30,19 @@
         "CAMERA",
         "RECORD_AUDIO",
         "MODIFY_AUDIO_SETTINGS"
-      ]
+      ],
+      "package": "com.juanbenitez10.SpanishLicense"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-video"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "07e45dcc-8a4a-4469-87a6-a71ec0ce2deb"
+      }
+    }
   }
 }
