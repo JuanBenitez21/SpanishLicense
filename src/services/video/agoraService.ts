@@ -42,7 +42,6 @@ class AgoraService {
       // Habilitar video
       this.engine.enableVideo();
 
-      // Habilitar audio
       this.engine.enableAudio();
 
       this.isInitialized = true;
