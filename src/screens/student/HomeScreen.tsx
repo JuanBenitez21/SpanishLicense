@@ -356,7 +356,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleContainer}>
-              <Text style={styles.sectionIcon}>📰</Text>
+              <Text style={styles.sectionIcon}></Text>
               <Text style={styles.sectionTitle}>Práctica de Lectura</Text>
             </View>
           </View>
