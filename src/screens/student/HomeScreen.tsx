@@ -352,26 +352,48 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           </View>
         )}
 
-        {/* Explore Cultures Section */}
+        {/* Práctica de Lectura Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleContainer}>
-              <Text style={styles.sectionIcon}></Text>
-              <Text style={styles.sectionTitle}>Explora Culturas</Text>
+              <Text style={styles.sectionIcon}>📰</Text>
+              <Text style={styles.sectionTitle}>Práctica de Lectura</Text>
             </View>
           </View>
 
           <View style={styles.culturesContainer}>
-            {[
-              { flag: '🇪🇸', name: 'España' },
-              { flag: '🇲🇽', name: 'México' },
-              { flag: '🇦🇷', name: 'Argentina' },
-            ].map((culture, index) => (
-              <TouchableOpacity key={index} style={styles.cultureCard}>
-                <Text style={styles.cultureFlag}>{culture.flag}</Text>
-                <Text style={styles.cultureName}>{culture.name}</Text>
-              </TouchableOpacity>
-            ))}
+            <TouchableOpacity
+              style={styles.newsCard}
+              onPress={() => navigation.navigate('NewsList')}
+            >
+              <View style={styles.newsIconContainer}>
+                <Text style={styles.cultureFlag}>🇪🇸</Text>
+              </View>
+              <Text style={styles.newsTitle}>Noticias de España</Text>
+              <Text style={styles.newsDescription}>
+                Lee noticias reales en español
+              </Text>
+              <View style={styles.newsFooter}>
+                <Ionicons name="newspaper-outline" size={16} color={theme.colors.primary.main} />
+                <Text style={styles.newsFooterText}>Actualizado hoy</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.cultureCard}
+              onPress={() => Alert.alert('Próximamente', 'Esta función estará disponible pronto')}
+            >
+              <Text style={styles.cultureFlag}>🇲🇽</Text>
+              <Text style={styles.cultureName}>México</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.cultureCard}
+              onPress={() => Alert.alert('Próximamente', 'Esta función estará disponible pronto')}
+            >
+              <Text style={styles.cultureFlag}>🇦🇷</Text>
+              <Text style={styles.cultureName}>Argentina</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -660,6 +682,46 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: theme.colors.text.primary,
+  },
+  newsCard: {
+    flex: 2,
+    backgroundColor: theme.colors.background.paper,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 2,
+    borderColor: theme.colors.primary.main + '30',
+    ...theme.shadows.medium,
+  },
+  newsIconContainer: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  newsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: theme.colors.text.primary,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  newsDescription: {
+    fontSize: 13,
+    color: theme.colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  newsFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  newsFooterText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: theme.colors.primary.main,
   },
   achievementsContainer: {
     flexDirection: 'row',

@@ -16,6 +16,8 @@ import QuizScreen from '@/screens/student/QuizScreen';
 import ScheduleClassScreen from '@/screens/student/ScheduleClassScreen';
 import ChatListScreen from '@/screens/shared/ChatListScreen';
 import ChatScreen from '@/screens/shared/ChatScreen';
+import NewsListScreen from '@/screens/student/NewsListScreen';
+import NewsDetailScreen from '@/screens/student/NewsDetailScreen';
 
 // Type definitions
 export type HomeStackParamList = {
@@ -26,6 +28,17 @@ export type HomeStackParamList = {
     conversationId?: string;
     teacherId?: string;
     teacherName?: string;
+    isAIChat?: boolean;
+    otherParticipant?: {
+      id: string;
+      name: string;
+      avatar_url: string | null;
+      role: 'student' | 'teacher';
+    };
+  };
+  NewsList: undefined;
+  NewsDetail: {
+    article: any;
   };
 };
 
@@ -69,6 +82,8 @@ function HomeStack() {
       <HomeStackNav.Screen name="Profile" component={ProfileScreen} />
       <HomeStackNav.Screen name="ChatList" component={ChatListScreen} />
       <HomeStackNav.Screen name="Chat" component={ChatScreen} />
+      <HomeStackNav.Screen name="NewsList" component={NewsListScreen} />
+      <HomeStackNav.Screen name="NewsDetail" component={NewsDetailScreen} />
     </HomeStackNav.Navigator>
   );
 }
