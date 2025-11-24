@@ -19,6 +19,8 @@ import { useAuth } from '@/services/auth/AuthContext';
 import { chatService } from '@/services/chat/chatService';
 import { supabase } from '@/services/supabase/client';
 import type { ChatMessage } from '@/types/chat.types';
+import { geminiService } from '@/services/ai/geminiService';
+import { aiChatStorage, AIChatMessage } from '@/services/ai/aiChatStorage';
 
 type ChatScreenProps = {
   navigation: any;
@@ -27,6 +29,7 @@ type ChatScreenProps = {
       conversationId?: string;
       teacherId?: string;
       teacherName?: string;
+      isAIChat?: boolean;
       otherParticipant?: {
         id: string;
         name: string;
@@ -38,17 +41,44 @@ type ChatScreenProps = {
 };
 
 export default function ChatScreen({ navigation, route }: ChatScreenProps) {
-  const { conversationId: initialConversationId, teacherId, teacherName, otherParticipant: initialOtherParticipant } = route.params || {};
+  const {
+    conversationId: initialConversationId,
+    teacherId,
+    teacherName,
+    isAIChat = false,
+    otherParticipant: initialOtherParticipant
+  } = route.params || {};
   const { profile } = useAuth();
 
   const [conversationId, setConversationId] = useState(initialConversationId);
   const [otherParticipant, setOtherParticipant] = useState(initialOtherParticipant);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [aiMessages, setAiMessages] = useState<AIChatMessage[]>([]);
   const [messageText, setMessageText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+
+  const loadAIMessages = async () => {
+    if (!profile) return;
+
+    try {
+      setLoading(true);
+      const data = await aiChatStorage.getMessages(profile.id);
+      setAiMessages(data);
+
+      // Scroll al final después de cargar
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: false });
+      }, 100);
+    } catch (error) {
+      console.error('Error loading AI messages:', error);
+      Alert.alert('Error', 'No se pudieron cargar los mensajes');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const initializeConversation = async () => {
     // If we already have conversationId and participant, we're good
@@ -118,11 +148,15 @@ export default function ChatScreen({ navigation, route }: ChatScreenProps) {
 
   // Initialize conversation if needed
   useEffect(() => {
-    initializeConversation();
+    if (isAIChat) {
+      loadAIMessages();
+    } else {
+      initializeConversation();
+    }
   }, []);
 
   useEffect(() => {
-    if (conversationId) {
+    if (!isAIChat && conversationId) {
       loadMessages();
       markMessagesAsRead();
     }
@@ -185,16 +219,27 @@ export default function ChatScreen({ navigation, route }: ChatScreenProps) {
   };
 
   const handleSendMessage = async () => {
-    if (!profile || !messageText.trim() || !conversationId) return;
+    if (!profile || !messageText.trim()) return;
 
     const text = messageText.trim();
     setMessageText('');
+
+    if (isAIChat) {
+      await handleSendAIMessage(text);
+    } else {
+      if (!conversationId) return;
+      await handleSendHumanMessage(text);
+    }
+  };
+
+  const handleSendHumanMessage = async (text: string) => {
+    if (!conversationId) return;
 
     try {
       setSending(true);
       await chatService.sendMessage({
         conversation_id: conversationId,
-        sender_id: profile.id,
+        sender_id: profile!.id,
         content: text,
       });
       // El mensaje se agregará automáticamente por el subscription
@@ -205,6 +250,69 @@ export default function ChatScreen({ navigation, route }: ChatScreenProps) {
     } finally {
       setSending(false);
     }
+  };
+
+  const handleSendAIMessage = async (text: string) => {
+    if (!profile) return;
+
+    try {
+      setSending(true);
+
+      // Agregar mensaje del usuario
+      const userMessage = await aiChatStorage.addMessage(profile.id, 'user', text);
+      setAiMessages((prev) => [...prev, userMessage]);
+
+      // Scroll al final
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+
+      // Obtener historial para contexto
+      const conversationHistory = await aiChatStorage.getConversationHistory(profile.id);
+
+      // Generar respuesta del AI
+      const aiResponse = await geminiService.generateChatResponse(text, conversationHistory);
+
+      // Agregar respuesta del AI
+      const assistantMessage = await aiChatStorage.addMessage(profile.id, 'assistant', aiResponse);
+      setAiMessages((prev) => [...prev, assistantMessage]);
+
+      // Scroll al final
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    } catch (error: any) {
+      console.error('Error sending AI message:', error);
+      Alert.alert('Error', error.message || 'No se pudo enviar el mensaje al Profesor AI');
+      setMessageText(text); // Restaurar el texto si falla
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleClearHistory = () => {
+    Alert.alert(
+      'Limpiar historial',
+      '¿Estás seguro de que quieres eliminar todo el historial de conversación con el Profesor AI?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            if (!profile) return;
+            try {
+              await aiChatStorage.clearMessages(profile.id);
+              setAiMessages([]);
+              Alert.alert('Historial eliminado', 'El historial de conversación ha sido eliminado');
+            } catch (error) {
+              console.error('Error clearing history:', error);
+              Alert.alert('Error', 'No se pudo eliminar el historial');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const formatTime = (dateString: string) => {
@@ -246,8 +354,10 @@ export default function ChatScreen({ navigation, route }: ChatScreenProps) {
     });
   };
 
-  const renderMessage = ({ item }: { item: ChatMessage }) => {
-    const isOwnMessage = item.sender_id === profile?.id;
+  const renderMessage = ({ item }: { item: ChatMessage | AIChatMessage }) => {
+    const isOwnMessage = isAIChat
+      ? (item as AIChatMessage).role === 'user'
+      : (item as ChatMessage).sender_id === profile?.id;
 
     return (
       <View
@@ -292,20 +402,30 @@ export default function ChatScreen({ navigation, route }: ChatScreenProps) {
         </TouchableOpacity>
 
         <View style={styles.headerCenter}>
-          <View style={styles.headerAvatar}>
-            <Ionicons name="person" size={20} color={theme.colors.primary.main} />
+          <View style={[styles.headerAvatar, isAIChat && styles.aiHeaderAvatar]}>
+            <Ionicons
+              name={isAIChat ? 'sparkles' : 'person'}
+              size={20}
+              color={isAIChat ? '#FFFFFF' : theme.colors.primary.main}
+            />
           </View>
           <View style={styles.headerInfo}>
             <Text style={styles.headerName}>{otherParticipant?.name || 'Cargando...'}</Text>
             <Text style={styles.headerRole}>
-              {otherParticipant?.role === 'teacher' ? 'Profesor' : 'Estudiante'}
+              {isAIChat ? 'Asistente AI' : otherParticipant?.role === 'teacher' ? 'Profesor' : 'Estudiante'}
             </Text>
           </View>
         </View>
 
-        <TouchableOpacity style={styles.moreButton}>
-          <Ionicons name="ellipsis-vertical" size={24} color={theme.colors.text.primary} />
-        </TouchableOpacity>
+        {isAIChat ? (
+          <TouchableOpacity style={styles.moreButton} onPress={handleClearHistory}>
+            <Ionicons name="trash-outline" size={24} color={theme.colors.text.primary} />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.moreButton}>
+            <Ionicons name="ellipsis-vertical" size={24} color={theme.colors.text.primary} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Messages List */}
@@ -321,7 +441,7 @@ export default function ChatScreen({ navigation, route }: ChatScreenProps) {
         ) : (
           <FlatList
             ref={flatListRef}
-            data={messages}
+            data={isAIChat ? aiMessages : messages}
             renderItem={renderMessage}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.messagesList}
@@ -335,7 +455,9 @@ export default function ChatScreen({ navigation, route }: ChatScreenProps) {
                   color={theme.colors.text.disabled}
                 />
                 <Text style={styles.emptyStateText}>
-                  No hay mensajes aún{'\n'}Envía el primero para iniciar la conversación
+                  {isAIChat
+                    ? 'No hay mensajes aún\nPregúntale al Profesor AI sobre español'
+                    : 'No hay mensajes aún\nEnvía el primero para iniciar la conversación'}
                 </Text>
               </View>
             }
@@ -405,6 +527,9 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary.main + '20',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  aiHeaderAvatar: {
+    backgroundColor: theme.colors.primary.main,
   },
   headerInfo: {
     flex: 1,

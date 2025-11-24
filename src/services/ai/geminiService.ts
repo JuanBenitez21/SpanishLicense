@@ -159,6 +159,98 @@ Reglas:
       totalQuestions,
     };
   }
+
+  /**
+   * Genera una respuesta de chat conversacional usando Gemini AI
+   * El AI actúa como un profesor de español experto
+   */
+  async generateChatResponse(
+    userMessage: string,
+    conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = []
+  ): Promise<string> {
+    if (!this.apiKey) {
+      throw new Error('Gemini API key not configured');
+    }
+
+    // Construir el contexto de la conversación
+    const systemPrompt = `Eres un profesor de español experto y amigable que ayuda a estudiantes a aprender español de España.
+Tu objetivo es:
+- Responder preguntas sobre gramática, vocabulario y cultura española
+- Corregir errores de manera constructiva
+- Proporcionar ejemplos prácticos y contextuales
+- Ser paciente y motivador
+- Ayudar con la preparación para exámenes de español
+- Mantener un tono profesional pero cercano
+
+Responde de manera concisa (2-4 oraciones normalmente) a menos que se requiera una explicación más detallada.`;
+
+    // Construir el historial de mensajes
+    const contents = [
+      {
+        role: 'user',
+        parts: [{ text: systemPrompt }],
+      },
+      {
+        role: 'model',
+        parts: [{ text: 'Entendido. Soy tu profesor de español y estoy aquí para ayudarte a aprender. ¿En qué puedo ayudarte hoy?' }],
+      },
+    ];
+
+    // Agregar historial de conversación
+    conversationHistory.forEach((msg) => {
+      contents.push({
+        role: msg.role === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.content }],
+      });
+    });
+
+    // Agregar mensaje actual del usuario
+    contents.push({
+      role: 'user',
+      parts: [{ text: userMessage }],
+    });
+
+    const body = {
+      contents: contents,
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 500,
+      },
+    };
+
+    try {
+      const response = await fetch(this.baseUrl, {
+        method: 'POST',
+        headers: {
+          'x-goog-api-key': this.apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Gemini API error: ${JSON.stringify(errorData)}`);
+      }
+
+      const data: GeminiResponse = await response.json();
+
+      if (!data.candidates || data.candidates.length === 0) {
+        throw new Error('No se recibió una respuesta válida de la IA');
+      }
+
+      const aiResponse = data.candidates[0].content.parts[0].text.trim();
+      return aiResponse;
+    } catch (error: any) {
+      console.error('Error generating chat response:', error);
+
+      if (error.message.includes('API key')) {
+        throw new Error('API key de Gemini no válida o expirada');
+      }
+
+      throw new Error('Error al generar respuesta. Intenta de nuevo.');
+    }
+  }
 }
 
 export const geminiService = new GeminiService();

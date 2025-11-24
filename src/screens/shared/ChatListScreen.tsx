@@ -111,6 +111,18 @@ export default function ChatListScreen({ navigation }: ChatListScreenProps) {
     });
   };
 
+  const handleAIChatPress = () => {
+    navigation.navigate('Chat', {
+      isAIChat: true,
+      otherParticipant: {
+        id: 'ai-teacher',
+        name: 'Profesor AI',
+        avatar_url: null,
+        role: 'teacher' as const,
+      },
+    });
+  };
+
   const handleNewChat = () => {
     // Navegar a la pantalla de selección de estudiante
     navigation.navigate('SelectStudent');
@@ -178,6 +190,24 @@ export default function ChatListScreen({ navigation }: ChatListScreenProps) {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+        {/* AI Chat Card - Solo para estudiantes */}
+        {profile?.role === 'student' && !searchQuery && (
+          <View style={styles.aiChatSection}>
+            <TouchableOpacity style={styles.aiChatCard} onPress={handleAIChatPress}>
+              <View style={styles.aiChatIconContainer}>
+                <Ionicons name="sparkles" size={28} color="#FFFFFF" />
+              </View>
+              <View style={styles.aiChatContent}>
+                <Text style={styles.aiChatTitle}>Profesor AI</Text>
+                <Text style={styles.aiChatDescription}>
+                  Practica español con tu asistente inteligente
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={theme.colors.text.disabled} />
+            </TouchableOpacity>
+          </View>
+        )}
+
         {filteredConversations.length > 0 ? (
           <View style={styles.conversationsList}>
             {filteredConversations.map((conversation) => (
@@ -412,5 +442,42 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     ...theme.shadows.large,
+  },
+  aiChatSection: {
+    paddingHorizontal: 22,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  aiChatCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.background.paper,
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+    borderWidth: 2,
+    borderColor: theme.colors.primary.main + '30',
+    ...theme.shadows.medium,
+  },
+  aiChatIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: theme.colors.primary.main,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  aiChatContent: {
+    flex: 1,
+    gap: 2,
+  },
+  aiChatTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: theme.colors.text.primary,
+  },
+  aiChatDescription: {
+    fontSize: 13,
+    color: theme.colors.text.secondary,
   },
 });
