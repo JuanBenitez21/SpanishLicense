@@ -9,7 +9,13 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease", 
+        "env": {
+          "ORG_GRADLE_JVMARGS": "-Xmx3072m -XX:MaxMetaspaceSize=512m"
+        }
+      }
     },
     "production": {
       "autoIncrement": true

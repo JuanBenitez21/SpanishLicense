@@ -18,6 +18,7 @@ import { useAuth } from '@/services/auth/AuthContext';
 import { supabase } from '@/services/supabase/client';
 import { calendarService } from '@/services/calendar/calendarService';
 import type { TeacherWithAvailability, AvailableSlot } from '@/types/calendar.types';
+import { formatLocalDate } from '@/utils/dateUtils';
 
 const { width } = Dimensions.get('window');
 const DAYS_TO_SHOW = 14; // Mostrar próximos 14 días
@@ -153,8 +154,8 @@ export default function ScheduleClassScreen({ navigation, route }: ScheduleClass
     try {
       setLoadingSlots(true);
       setSelectedSlot(null);
-      
-      const dateStr = selectedDate.toISOString().split('T')[0];
+
+      const dateStr = formatLocalDate(selectedDate);
       const slots = await calendarService.getAvailableSlots(selectedTeacher.id, dateStr);
       
       // Filtrar slots pasados si es hoy
@@ -219,7 +220,7 @@ export default function ScheduleClassScreen({ navigation, route }: ScheduleClass
       await calendarService.scheduleClass({
         student_id: studentId,
         teacher_id: selectedTeacher.id,
-        scheduled_date: selectedDate.toISOString().split('T')[0],
+        scheduled_date: formatLocalDate(selectedDate),
         start_time: selectedSlot.start_time,
         end_time: selectedSlot.end_time,
         duration_minutes: 60,

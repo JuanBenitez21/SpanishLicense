@@ -148,11 +148,34 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
   const handleStartClass = async (classItem: ScheduledClass) => {
     try {
+      // Iniciar la clase en la base de datos
       await calendarService.startClass(classItem.id);
-      // TODO: Navegar a pantalla de videollamada
-      Alert.alert('Iniciando clase', 'Redirigiendo a la sala de videollamada...');
+
+      // Generar token para Agora
+      const { tokenService } = await import('@/services/video/tokenService');
+      const tokenData = await tokenService.generateToken(classItem.id, profile!.id);
+
+      // Obtener información del profesor
+      const teacherName = classItem.teacher
+        ? `${classItem.teacher.user.first_name} ${classItem.teacher.user.last_name}`
+        : 'Profesor';
+      const studentName = `${profile!.first_name} ${profile!.last_name}`;
+
+      // Navegar a la sala de espera (usando el CalendarStack del navegador)
+      navigation.navigate('Calendar', {
+        screen: 'WaitingRoom',
+        params: {
+          classId: classItem.id,
+          channelName: tokenData.channelName,
+          token: tokenData.token,
+          isTeacher: false,
+          teacherName: teacherName,
+          studentName: studentName,
+        },
+      });
     } catch (error) {
-      Alert.alert('Error', 'No se pudo iniciar la clase');
+      console.error('Error iniciando clase:', error);
+      Alert.alert('Error', 'No se pudo iniciar la videollamada. Verifica tu conexión.');
     }
   };
 

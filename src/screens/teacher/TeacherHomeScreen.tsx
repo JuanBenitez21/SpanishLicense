@@ -10,6 +10,7 @@ import { supabase } from '@/services/supabase/client';
 import { calendarService } from '@/services/calendar/calendarService';
 import type { ScheduledClass } from '@/types/calendar.types';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { formatLocalDate } from '@/utils/dateUtils';
 
 type TeacherHomeScreenProps = {
   navigation: StackNavigationProp<any>;
@@ -63,7 +64,7 @@ export default function TeacherHomeScreen({ navigation }: TeacherHomeScreenProps
       setTeacherData(teacher);
 
       // Obtener clases de hoy
-      const today = new Date().toISOString().split('T')[0];
+      const today = formatLocalDate(new Date());
       const todayClassesData = await calendarService.getTeacherClasses(
         teacher.id,
         today,
@@ -79,8 +80,8 @@ export default function TeacherHomeScreen({ navigation }: TeacherHomeScreenProps
 
       const upcomingData = await calendarService.getTeacherClasses(
         teacher.id,
-        tomorrow.toISOString().split('T')[0],
-        nextWeek.toISOString().split('T')[0]
+        formatLocalDate(tomorrow),
+        formatLocalDate(nextWeek)
       );
       setUpcomingClasses(upcomingData.slice(0, 5)); // Solo mostrar 5
 
@@ -94,8 +95,8 @@ export default function TeacherHomeScreen({ navigation }: TeacherHomeScreenProps
         .from('scheduled_classes')
         .select('status')
         .eq('teacher_id', teacher.id)
-        .gte('scheduled_date', startOfWeek.toISOString().split('T')[0])
-        .lte('scheduled_date', endOfWeek.toISOString().split('T')[0]);
+        .gte('scheduled_date', formatLocalDate(startOfWeek))
+        .lte('scheduled_date', formatLocalDate(endOfWeek));
 
       const completedThisWeek = weekClasses?.filter(c => c.status === 'completed').length || 0;
 
@@ -122,11 +123,34 @@ export default function TeacherHomeScreen({ navigation }: TeacherHomeScreenProps
 
   const handleStartClass = async (classItem: ScheduledClass) => {
     try {
+      // Iniciar la clase en la base de datos
       await calendarService.startClass(classItem.id);
-      Alert.alert('Iniciando clase', 'Redirigiendo a la sala de videollamada...');
-      await loadData();
+
+      // Generar token para Agora
+      const { tokenService } = await import('@/services/video/tokenService');
+      const tokenData = await tokenService.generateToken(classItem.id, profile!.id);
+
+      // Obtener información del estudiante
+      const studentName = classItem.student
+        ? `${classItem.student.user.first_name} ${classItem.student.user.last_name}`
+        : 'Estudiante';
+      const teacherName = `${profile!.first_name} ${profile!.last_name}`;
+
+      // Navegar a la sala de espera (usando el CalendarStack del navegador)
+      navigation.navigate('Calendar', {
+        screen: 'WaitingRoom',
+        params: {
+          classId: classItem.id,
+          channelName: tokenData.channelName,
+          token: tokenData.token,
+          isTeacher: true,
+          teacherName: teacherName,
+          studentName: studentName,
+        },
+      });
     } catch (error) {
-      Alert.alert('Error', 'No se pudo iniciar la clase');
+      console.error('Error iniciando clase:', error);
+      Alert.alert('Error', 'No se pudo iniciar la videollamada. Verifica tu conexión.');
     }
   };
 

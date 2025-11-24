@@ -18,6 +18,7 @@ import { useAuth } from '@/services/auth/AuthContext';
 import { supabase } from '@/services/supabase/client';
 import { calendarService } from '@/services/calendar/calendarService';
 import type { ScheduledClass } from '@/types/calendar.types';
+import { formatLocalDate } from '@/utils/dateUtils';
 
 const DAYS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
 const MONTHS = [
@@ -113,7 +114,7 @@ export default function CalendarScreen({ navigation }: CalendarScreenProps) {
 
     try {
       setLoadingClasses(true);
-      const dateStr = selectedDate.toISOString().split('T')[0];
+      const dateStr = formatLocalDate(selectedDate);
 
       const classes = await calendarService.getStudentClasses(
         studentId,
@@ -208,22 +209,31 @@ export default function CalendarScreen({ navigation }: CalendarScreenProps) {
 
   const handleStartClass = async (classItem: ScheduledClass) => {
     try {
+      // Iniciar la clase en la base de datos
       await calendarService.startClass(classItem.id);
-      // TODO: Navegar a pantalla de videollamada
-      Alert.alert(
-        'Iniciando clase', 
-        'Redirigiendo a la sala de videollamada...',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // navigation.navigate('VideoCall', { classId: classItem.id });
-            }
-          }
-        ]
-      );
+
+      // Generar token para Agora
+      const { tokenService } = await import('@/services/video/tokenService');
+      const tokenData = await tokenService.generateToken(classItem.id, profile!.id);
+
+      // Obtener información del profesor
+      const teacherName = classItem.teacher
+        ? `${classItem.teacher.user.first_name} ${classItem.teacher.user.last_name}`
+        : 'Profesor';
+      const studentName = `${profile!.first_name} ${profile!.last_name}`;
+
+      // Navegar a la sala de espera
+      navigation.navigate('WaitingRoom', {
+        classId: classItem.id,
+        channelName: tokenData.channelName,
+        token: tokenData.token,
+        isTeacher: false,
+        teacherName: teacherName,
+        studentName: studentName,
+      });
     } catch (error) {
-      Alert.alert('Error', 'No se pudo iniciar la clase');
+      console.error('Error iniciando clase:', error);
+      Alert.alert('Error', 'No se pudo iniciar la videollamada. Verifica tu conexión.');
     }
   };
 

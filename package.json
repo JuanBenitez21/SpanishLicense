@@ -17,6 +17,7 @@
     "@react-navigation/bottom-tabs": "^6.5.11",
     "@react-navigation/native": "^6.1.9",
     "@react-navigation/stack": "^6.3.20",
+    "@shopify/react-native-skia": "^2.4.2",
     "@supabase/supabase-js": "^2.39.0",
     "expo": "~54.0.25",
     "expo-av": "~16.0.7",
@@ -45,6 +46,9 @@
     "@babel/core": "^7.20.0",
     "@types/react": "~19.1.10",
     "typescript": "^5.1.3"
+  },
+  "overrides": {
+    "@shopify/react-native-skia": "$@shopify/react-native-skia"
   },
   "private": true
 }

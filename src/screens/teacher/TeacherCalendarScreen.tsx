@@ -18,6 +18,7 @@ import { useAuth } from '@/services/auth/AuthContext';
 import { supabase } from '@/services/supabase/client';
 import { calendarService } from '@/services/calendar/calendarService';
 import type { ScheduledClass } from '@/types/calendar.types';
+import { formatLocalDate } from '@/utils/dateUtils';
 
 const DAYS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
 const MONTHS = [
@@ -99,8 +100,8 @@ export default function TeacherCalendarScreen({ navigation }: TeacherCalendarScr
       const firstDay = new Date(year, month - 1, 1);
       const lastDay = new Date(year, month, 0);
 
-      const startDate = firstDay.toISOString().split('T')[0];
-      const endDate = lastDay.toISOString().split('T')[0];
+      const startDate = formatLocalDate(firstDay);
+      const endDate = formatLocalDate(lastDay);
 
       const { data, error } = await supabase
         .from('scheduled_classes')
@@ -131,7 +132,7 @@ export default function TeacherCalendarScreen({ navigation }: TeacherCalendarScr
 
     try {
       setLoadingClasses(true);
-      const dateStr = selectedDate.toISOString().split('T')[0];
+      const dateStr = formatLocalDate(selectedDate);
 
       const classes = await calendarService.getTeacherClasses(
         teacherId,
@@ -221,15 +222,31 @@ export default function TeacherCalendarScreen({ navigation }: TeacherCalendarScr
 
   const handleStartClass = async (classItem: ScheduledClass) => {
     try {
+      // Iniciar la clase en la base de datos
       await calendarService.startClass(classItem.id);
-      Alert.alert(
-        'Iniciando clase',
-        'Redirigiendo a la sala de videollamada...',
-        [{ text: 'OK' }]
-      );
-      await loadSelectedDayClasses();
+
+      // Generar token para Agora
+      const { tokenService } = await import('@/services/video/tokenService');
+      const tokenData = await tokenService.generateToken(classItem.id, profile!.id);
+
+      // Obtener información del estudiante
+      const studentName = classItem.student
+        ? `${classItem.student.user.first_name} ${classItem.student.user.last_name}`
+        : 'Estudiante';
+      const teacherName = `${profile!.first_name} ${profile!.last_name}`;
+
+      // Navegar a la sala de espera
+      navigation.navigate('WaitingRoom', {
+        classId: classItem.id,
+        channelName: tokenData.channelName,
+        token: tokenData.token,
+        isTeacher: true,
+        teacherName: teacherName,
+        studentName: studentName,
+      });
     } catch (error) {
-      Alert.alert('Error', 'No se pudo iniciar la clase');
+      console.error('Error iniciando clase:', error);
+      Alert.alert('Error', 'No se pudo iniciar la videollamada. Verifica tu conexión.');
     }
   };
 

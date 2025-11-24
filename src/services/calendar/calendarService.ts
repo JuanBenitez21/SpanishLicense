@@ -7,6 +7,7 @@ import {
   CreateClassData,
   TeacherWithAvailability,
 } from '@/types/calendar.types';
+import { formatLocalDate, getCurrentTimeLocal } from '@/utils/dateUtils';
 
 export class CalendarService {
   /**
@@ -90,9 +91,8 @@ export class CalendarService {
    */
   async getNextClass(studentId: string): Promise<ScheduledClass | null> {
     try {
-      const now = new Date();
-      const today = now.toISOString().split('T')[0];
-      const currentTime = now.toTimeString().split(' ')[0].substring(0, 5);
+      const today = formatLocalDate(new Date());
+      const currentTime = getCurrentTimeLocal();
 
       const { data, error } = await supabase
         .from('scheduled_classes')
@@ -129,7 +129,7 @@ export class CalendarService {
    */
   async getTodayClasses(studentId: string): Promise<ScheduledClass[]> {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = formatLocalDate(new Date());
 
       const { data, error } = await supabase
         .from('scheduled_classes')
@@ -171,8 +171,8 @@ export class CalendarService {
       const firstDay = new Date(year, month - 1, 1);
       const lastDay = new Date(year, month, 0);
 
-      const startDate = firstDay.toISOString().split('T')[0];
-      const endDate = lastDay.toISOString().split('T')[0];
+      const startDate = formatLocalDate(firstDay);
+      const endDate = formatLocalDate(lastDay);
 
       const { data, error } = await supabase
         .from('scheduled_classes')
@@ -560,9 +560,8 @@ export class CalendarService {
    */
   async autoCompleteExpiredClasses(): Promise<void> {
     try {
-      const now = new Date();
-      const today = now.toISOString().split('T')[0];
-      const currentTime = now.toTimeString().split(' ')[0].substring(0, 5);
+      const today = formatLocalDate(new Date());
+      const currentTime = getCurrentTimeLocal();
 
       // Buscar clases que deberían estar completadas
       // (fecha anterior a hoy O fecha de hoy pero hora de fin ya pasó)
