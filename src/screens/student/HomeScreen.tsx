@@ -227,7 +227,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleContainer}>
-                <Text style={styles.sectionIcon}>📚</Text>
+                <Text style={styles.sectionIcon}></Text>
                 <Text style={styles.sectionTitle}>Continúa Aprendiendo</Text>
               </View>
               <TouchableOpacity onPress={() => navigation.navigate('Learning')}>
@@ -286,7 +286,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleContainer}>
-                <Text style={styles.sectionIcon}>🗓️</Text>
+                <Text style={styles.sectionIcon}></Text>
                 <Text style={styles.sectionTitle}>Clases de Hoy</Text>
               </View>
               <TouchableOpacity onPress={() => navigation.navigate('Calendar')}>
@@ -327,7 +327,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleContainer}>
-                <Text style={styles.sectionIcon}>🗓️</Text>
+                <Text style={styles.sectionIcon}></Text>
                 <Text style={styles.sectionTitle}>Próxima Clase</Text>
               </View>
             </View>
@@ -356,7 +356,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleContainer}>
-              <Text style={styles.sectionIcon}>🌍</Text>
+              <Text style={styles.sectionIcon}></Text>
               <Text style={styles.sectionTitle}>Explora Culturas</Text>
             </View>
           </View>
@@ -379,7 +379,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleContainer}>
-              <Text style={styles.sectionIcon}>🏆</Text>
+              <Text style={styles.sectionIcon}></Text>
               <Text style={styles.sectionTitle}>Logros Recientes</Text>
             </View>
           </View>

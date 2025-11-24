@@ -23,7 +23,7 @@ export default function OnboardingScreen({ navigation }: OnboardingScreenProps) 
 
         {/* Logo y Branding */}
         <View style={styles.header}>
-          <Text style={styles.logo}>🇪🇸</Text>
+          <Text style={styles.logo}></Text>
           <Text style={styles.appName}>SpanishLicense</Text>
           <Text style={styles.tagline}>Aprende español con nativos</Text>
         </View>
