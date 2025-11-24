@@ -16,6 +16,8 @@ import QuizScreen from '@/screens/student/QuizScreen';
 import ScheduleClassScreen from '@/screens/student/ScheduleClassScreen';
 import ChatListScreen from '@/screens/shared/ChatListScreen';
 import ChatScreen from '@/screens/shared/ChatScreen';
+import WaitingRoomScreen from '@/screens/video/WaitingRoomScreen';
+import VideoCallScreen from '@/screens/video/VideoCallScreen';
 
 // Type definitions
 export type HomeStackParamList = {
@@ -47,6 +49,21 @@ export type CalendarStackParamList = {
   ScheduleClass: {
     selectedDate?: string;
     preselectedTeacherId?: string;
+  };
+  WaitingRoom: {
+    classId: string;
+    channelName: string;
+    token: string;
+    isTeacher: boolean;
+    teacherName?: string;
+    studentName?: string;
+  };
+  VideoCall: {
+    classId: string;
+    channelName: string;
+    isTeacher: boolean;
+    teacherName?: string;
+    studentName?: string;
   };
 };
 
@@ -95,6 +112,21 @@ function CalendarStack() {
         component={ScheduleClassScreen}
         options={{
           presentation: 'modal',
+        }}
+      />
+      <CalendarStackNav.Screen
+        name="WaitingRoom"
+        component={WaitingRoomScreen}
+        options={{
+          presentation: 'modal',
+        }}
+      />
+      <CalendarStackNav.Screen
+        name="VideoCall"
+        component={VideoCallScreen}
+        options={{
+          presentation: 'modal',
+          gestureEnabled: false,
         }}
       />
     </CalendarStackNav.Navigator>

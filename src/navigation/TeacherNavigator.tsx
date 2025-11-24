@@ -14,38 +14,78 @@ import ProfileScreen from '@/screens/shared/ProfileScreen';
 import ChatListScreen from '@/screens/shared/ChatListScreen';
 import ChatScreen from '@/screens/shared/ChatScreen';
 import SelectStudentScreen from '@/screens/shared/SelectStudentScreen';
+import WaitingRoomScreen from '@/screens/video/WaitingRoomScreen';
+import VideoCallScreen from '@/screens/video/VideoCallScreen';
+
+// Type definitions
+export type TeacherCalendarStackParamList = {
+  CalendarMain: undefined;
+  ManageAvailability: undefined;
+  WaitingRoom: {
+    classId: string;
+    channelName: string;
+    token: string;
+    isTeacher: boolean;
+    teacherName?: string;
+    studentName?: string;
+  };
+  VideoCall: {
+    classId: string;
+    channelName: string;
+    isTeacher: boolean;
+    teacherName?: string;
+    studentName?: string;
+  };
+};
 
 const Tab = createBottomTabNavigator();
-const Stack = createStackNavigator();
+const HomeStackNav = createStackNavigator();
+const StudentsStackNav = createStackNavigator();
+const CalendarStackNav = createStackNavigator<TeacherCalendarStackParamList>();
 
 // Stack para cada tab
 function HomeStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="TeacherHomeMain" component={TeacherHomeScreen} />
-      <Stack.Screen name="Profile" component={ProfileScreen} />
-      <Stack.Screen name="ChatList" component={ChatListScreen} />
-      <Stack.Screen name="Chat" component={ChatScreen} />
-      <Stack.Screen name="SelectStudent" component={SelectStudentScreen} />
-    </Stack.Navigator>
+    <HomeStackNav.Navigator screenOptions={{ headerShown: false }}>
+      <HomeStackNav.Screen name="TeacherHomeMain" component={TeacherHomeScreen} />
+      <HomeStackNav.Screen name="Profile" component={ProfileScreen} />
+      <HomeStackNav.Screen name="ChatList" component={ChatListScreen} />
+      <HomeStackNav.Screen name="Chat" component={ChatScreen} />
+      <HomeStackNav.Screen name="SelectStudent" component={SelectStudentScreen} />
+    </HomeStackNav.Navigator>
   );
 }
 
 function StudentsStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="StudentsMain" component={StudentsScreen} />
-      <Stack.Screen name="StudentDetail" component={StudentDetailScreen} />
-    </Stack.Navigator>
+    <StudentsStackNav.Navigator screenOptions={{ headerShown: false }}>
+      <StudentsStackNav.Screen name="StudentsMain" component={StudentsScreen} />
+      <StudentsStackNav.Screen name="StudentDetail" component={StudentDetailScreen} />
+    </StudentsStackNav.Navigator>
   );
 }
 
 function CalendarStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="CalendarMain" component={TeacherCalendarScreen} />
-      <Stack.Screen name="ManageAvailability" component={ManageAvailabilityScreen} />
-    </Stack.Navigator>
+    <CalendarStackNav.Navigator screenOptions={{ headerShown: false }}>
+      <CalendarStackNav.Screen name="CalendarMain" component={TeacherCalendarScreen} />
+      <CalendarStackNav.Screen name="ManageAvailability" component={ManageAvailabilityScreen} />
+      <CalendarStackNav.Screen
+        name="WaitingRoom"
+        component={WaitingRoomScreen}
+        options={{
+          presentation: 'modal',
+        }}
+      />
+      <CalendarStackNav.Screen
+        name="VideoCall"
+        component={VideoCallScreen}
+        options={{
+          presentation: 'modal',
+          gestureEnabled: false,
+        }}
+      />
+    </CalendarStackNav.Navigator>
   );
 }
 
