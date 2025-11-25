@@ -5,83 +5,68 @@
 ERROR  ❌ Agora error: 110
 ```
 
-Este error significa que tu proyecto de Agora tiene el **App Certificate habilitado**, pero estás enviando un token vacío o inválido.
+Este error significa que tu proyecto de Agora tiene el **App Certificate habilitado**, pero estás enviando un token vacío.
 
-## Solución 1: Desactivar App Certificate (Más Rápida - Solo para Pruebas)
+## ✅ SOLUCIÓN: Desactivar App Certificate (Requerido para Desarrollo)
 
-1. Ve a la consola de Agora: https://console.agora.io
-2. Inicia sesión con tu cuenta
-3. En el dashboard, selecciona tu proyecto (el que tiene App ID: `c71527c9412548b4979c46023d336d88`)
-4. Ve a la pestaña **"Config"**
-5. En la sección **"Features"**, busca **"Primary Certificate"**
-6. **DESACTIVA** el toggle de "Enable Primary Certificate"
-7. Guarda los cambios
-8. Reinicia tu app en React Native
+### Instrucciones Paso a Paso:
 
-**Ventajas:**
-- Solución inmediata
-- No necesitas modificar código
-- Perfecto para pruebas de desarrollo
+1. Abre tu navegador y ve a: **https://console.agora.io**
 
-**Desventajas:**
-- Menos seguro (no usar en producción)
-- Cualquiera con tu App ID puede conectarse
+2. Inicia sesión con tu cuenta de Agora
+
+3. En el dashboard principal, busca y selecciona tu proyecto:
+   - App ID: `c71527c9412548b4979c46023d336d88`
+
+4. Una vez dentro del proyecto, ve a la pestaña **"Config"** (arriba)
+
+5. Busca la sección **"Features"**
+
+6. Encuentra **"Primary Certificate"** o **"App Certificate"**
+
+7. **DESACTIVA el toggle** que dice "Enable Primary Certificate" o "Enable App Certificate"
+   - El toggle debe quedar en color gris (OFF)
+
+8. Guarda los cambios si te lo pide
+
+9. Cierra la app en tu dispositivo Android
+
+10. Vuelve a abrir la app y prueba la videollamada
+
+**¿Por qué esto?**
+
+React Native no puede generar tokens seguros porque requiere el módulo `crypto` de Node.js, que no está disponible en dispositivos móviles. La única forma de usar tokens seguros es con un backend (servidor).
+
+Para desarrollo, es más sencillo desactivar el App Certificate temporalmente.
 
 ---
 
-## Solución 2: Usar App Certificate (Recomendado para Producción)
+## ¿Y para Producción?
 
-Si quieres mantener el App Certificate habilitado (más seguro):
+Para producción, necesitarás:
 
-### Paso 1: Obtener el App Certificate
+1. Crear un backend (Supabase Edge Function, AWS Lambda, etc.)
+2. El backend generará tokens usando el App Certificate
+3. La app móvil llamará a ese backend para obtener tokens válidos
+4. Volver a activar el App Certificate en Agora Console
 
-1. Ve a https://console.agora.io
-2. Selecciona tu proyecto
-3. En la pestaña **"Config"**
-4. Copia el **"Primary Certificate"** (es una cadena larga de caracteres)
-
-### Paso 2: Agregar el Certificate al .env
-
-Abre el archivo `.env` y agrega tu App Certificate:
-
-```env
-AGORA_APP_CERTIFICATE=TU_APP_CERTIFICATE_AQUI
-```
-
-Ejemplo:
-```env
-AGORA_APP_CERTIFICATE=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6
-```
-
-### Paso 3: Reiniciar el servidor
-
-```bash
-# Detener el servidor actual (Ctrl+C)
-# Luego reiniciar
-npx expo start
-```
-
-El código ya está configurado para:
-- ✅ Detectar automáticamente si tienes App Certificate
-- ✅ Generar tokens válidos con expiración de 1 hora
-- ✅ Funcionar sin App Certificate (token vacío) si no está configurado
+Pero por ahora, para desarrollo, **desactiva el App Certificate**
 
 ---
 
 ## ¿Qué hace el código ahora?
 
-El archivo `src/services/video/tokenService.ts` ahora:
+El archivo `src/services/video/tokenService.ts` usa un **token vacío** (string vacío) para conectarse a Agora.
 
-1. **Si tienes App Certificate configurado:**
-   - Genera un token RTC válido usando `agora-token`
-   - El token expira en 1 hora
-   - Todos los usuarios tienen rol de PUBLISHER (pueden hablar y mostrar video)
-   - Verás en consola: `✅ Token de Agora generado con App Certificate`
+Esto solo funciona si **desactivaste el App Certificate** en Agora Console.
 
-2. **Si NO tienes App Certificate:**
-   - Usa token vacío (string vacío)
-   - Solo funciona si desactivaste el App Certificate en Agora
-   - Verás en consola: `⚠️ Usando token vacío (sin App Certificate)`
+En la consola verás:
+```
+LOG  📡 Generando configuración para videollamada
+LOG     Canal: class_XXXXX
+LOG     UID: 12345678
+LOG  ⚠️  Usando token vacío - Asegúrate de desactivar App Certificate en Agora Console
+```
 
 ---
 
