@@ -39,13 +39,20 @@ class AgoraService {
         channelProfile: ChannelProfileType.ChannelProfileLiveBroadcasting,
       });
 
-      // Habilitar video
+      // Habilitar video y audio
       this.engine.enableVideo();
-
       this.engine.enableAudio();
+
+      // Configurar valores por defecto
+      this.engine.setDefaultAudioRouteToSpeakerphone(true);
+
+      // Asegurarse de que el audio y video local están habilitados
+      this.engine.enableLocalAudio(true);
+      this.engine.enableLocalVideo(true);
 
       this.isInitialized = true;
       console.log('✅ Agora Engine initialized successfully');
+      console.log('✅ Audio y Video habilitados por defecto');
     } catch (error) {
       console.error('❌ Error initializing Agora Engine:', error);
       throw error;
@@ -91,10 +98,22 @@ class AgoraService {
       // Configurar rol del usuario (todos como broadcaster para videollamada bidireccional)
       this.engine.setClientRole(ClientRoleType.ClientRoleBroadcaster);
 
+      // Habilitar audio y video antes de unirse
+      this.engine.enableAudio();
+      this.engine.enableVideo();
+      this.engine.enableLocalAudio(true);
+      this.engine.enableLocalVideo(true);
+
       // Unirse al canal
-      this.engine.joinChannel(config.token, config.channelName, config.uid, {});
+      await this.engine.joinChannel(config.token, config.channelName, config.uid, {
+        publishMicrophoneTrack: true,
+        publishCameraTrack: true,
+        autoSubscribeAudio: true,
+        autoSubscribeVideo: true,
+      });
 
       console.log(`✅ Joined channel: ${config.channelName}`);
+      console.log(`   📹 Video habilitado, 🎤 Audio habilitado`);
     } catch (error) {
       console.error('❌ Error joining channel:', error);
       throw error;

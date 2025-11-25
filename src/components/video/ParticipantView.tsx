@@ -33,8 +33,9 @@ export default function ParticipantView({
         <RtcSurfaceView
           style={styles.videoView}
           canvas={{
-            uid: isLocal ? 0 : uid,
+            uid: isLocal ? 0 : uid, // 0 para video local, uid real para remoto
             renderMode: RenderModeType.RenderModeHidden,
+            sourceType: isLocal ? 0 : 1, // 0 = local camera, 1 = remote user
           }}
         />
       ) : (
