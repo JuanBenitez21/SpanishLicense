@@ -1,17 +1,11 @@
 // src/services/video/tokenService.ts
+import { RtcTokenBuilder, RtcRole } from 'agora-token';
 
 /**
  * Servicio para generar tokens de Agora RTC
  *
- * NOTA IMPORTANTE:
- * Para usar Agora en producción, necesitas implementar un servidor backend
- * que genere tokens seguros usando el App Certificate de Agora.
- *
- * Por ahora, este servicio genera un token temporal vacío para desarrollo.
- * En producción, debes:
- * 1. Crear un Edge Function en Supabase o un endpoint en tu backend
- * 2. Usar el Agora Token Generator para crear tokens seguros
- * 3. Llamar a ese endpoint desde este servicio
+ * DESARROLLO: Este servicio genera tokens localmente usando el App Certificate.
+ * PRODUCCIÓN: Debes mover la generación de tokens a un backend seguro (Supabase Edge Function, etc.)
  */
 
 interface TokenResponse {
@@ -21,6 +15,18 @@ interface TokenResponse {
 }
 
 class TokenService {
+  private appId: string;
+  private appCertificate: string;
+
+  constructor() {
+    this.appId = process.env.EXPO_PUBLIC_AGORA_APP_ID || '';
+    this.appCertificate = process.env.AGORA_APP_CERTIFICATE || '';
+
+    if (!this.appId) {
+      console.error('❌ EXPO_PUBLIC_AGORA_APP_ID no está configurado');
+    }
+  }
+
   /**
    * Genera un token de Agora para unirse a un canal
    *
@@ -30,30 +36,47 @@ class TokenService {
    */
   async generateToken(classId: string, userId: string): Promise<TokenResponse> {
     try {
-      // DESARROLLO: Para pruebas iniciales sin seguridad
-      // Puedes usar null como token si tu proyecto de Agora no tiene App Certificate configurado
-      // ADVERTENCIA: No usar en producción
-
       const channelName = `class_${classId}`;
       const uid = this.generateUid(userId);
 
-      // TODO: En producción, llamar a tu backend para generar el token
-      // Ejemplo:
-      // const { data, error } = await supabase.functions.invoke('generate-agora-token', {
-      //   body: { channelName, uid }
-      // });
-      //
-      // if (error) throw error;
-      // return { token: data.token, channelName, uid };
+      let token: string;
 
-      // Por ahora, retornamos un token vacío (solo funciona si NO tienes App Certificate)
+      // Si hay App Certificate, generar token real
+      if (this.appCertificate && this.appCertificate.trim() !== '') {
+        const role = RtcRole.PUBLISHER; // Todos los usuarios pueden publicar (hablar y mostrar video)
+        const expirationTimeInSeconds = 3600; // 1 hora
+        const currentTimestamp = Math.floor(Date.now() / 1000);
+        const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
+
+        token = RtcTokenBuilder.buildTokenWithUid(
+          this.appId,
+          this.appCertificate,
+          channelName,
+          uid,
+          role,
+          privilegeExpiredTs,
+          privilegeExpiredTs
+        );
+
+        console.log('✅ Token de Agora generado con App Certificate');
+      } else {
+        // Sin App Certificate, usar token vacío
+        token = '';
+        console.log('⚠️ Usando token vacío (sin App Certificate)');
+        console.log('⚠️ Si ves error 110, ve a https://console.agora.io y:');
+        console.log('   1. Abre tu proyecto');
+        console.log('   2. Ve a "Config" > "Features"');
+        console.log('   3. DESACTIVA "Enable Primary Certificate" temporalmente');
+        console.log('   O agrega tu App Certificate a .env como AGORA_APP_CERTIFICATE');
+      }
+
       return {
-        token: '', // Token vacío - solo para desarrollo sin App Certificate
+        token,
         channelName,
         uid,
       };
     } catch (error) {
-      console.error('Error generating Agora token:', error);
+      console.error('❌ Error generating Agora token:', error);
       throw new Error('No se pudo generar el token de videollamada');
     }
   }
